@@ -2,7 +2,7 @@ export interface HealthResponse {
   status: 'ok'
   service: 'knowledge-decision-assistant'
   version: '0.1.0'
-  phase: 'P2'
+  phase: 'P5'
   gateway_configured: boolean
 }
 
@@ -28,7 +28,7 @@ export function isHealthResponse(value: unknown): value is HealthResponse {
     value.status === 'ok' &&
     value.service === 'knowledge-decision-assistant' &&
     value.version === '0.1.0' &&
-    value.phase === 'P2' &&
+    value.phase === 'P5' &&
     typeof value.gateway_configured === 'boolean'
   )
 }
@@ -74,7 +74,7 @@ export async function requestHealth(
     if (!isHealthResponse(payload)) {
       throw new HealthCheckError(
         'invalid-response',
-        'The response does not match the P2 health contract. Check the backend version, then retry.',
+        'The response does not match the P5 health contract. Check the backend version, then retry.',
       )
     }
 
