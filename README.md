@@ -3,11 +3,17 @@
 A multi-tenant, document-grounded assistant being built **one phase at a time**.
 See the [implementation plan](start-reading-pdf-file-generic-fountain.md) for the full scope.
 
-## Current state: P0 foundation
+Built as a hackathon submission for [PanScience Innovations](https://www.panscience.xyz/).
+The demo policies are fictional, not PanScience's internal policies.
+
+## Current state: P1 organisation accounts
 
 Implemented:
-- React, Vite, TypeScript and Tailwind setup workspace with real API health checking,
-  explicit failure states, retry, and responsive layouts.
+- Registration, login/logout and a protected organisation dashboard.
+- Persistent SQLite accounts, bcrypt password hashes and revocable HttpOnly-cookie sessions.
+- Tenant-scoped account access; another organisation's details return 404.
+- React, Vite, TypeScript and Tailwind UI with account loading/error states,
+  retry, and responsive layouts.
 - FastAPI health endpoint and typed backend configuration.
 - OpenAI-compatible / Azure-style gateway client construction and opt-in typed-JSON smoke checks.
 - CPU embedding and cross-encoder re-ranking smoke checks using FastEmbed.
@@ -16,10 +22,12 @@ Implemented:
 - Separate classifier datasets: 96 training examples and 24 validation examples.
 - Offline tests, dependency lockfiles and VS Code tasks.
 
-**Not implemented yet:** accounts, database tables, PDF-upload APIs, tenant-scoped
-retrieval, the decision engine, chat, or embedding the assistant. The PDFs are
+**Not implemented yet:** PDF-upload APIs, tenant-scoped document retrieval, the
+decision engine, chat, assistant publishing, or embedding the assistant. The PDFs are
 fixtures, not an ingested knowledge base. The classifier dataset is not yet a
 trained classifier. The final live-answer evaluation belongs to later phases.
+The Knowledge Base / Assistant / Usage tabs clearly identify their later-phase
+features; they do not show fabricated usage counts or working upload controls.
 
 ## Local setup (Windows / PowerShell)
 
@@ -43,8 +51,8 @@ The copy command above does not overwrite an existing local configuration.
 ### Start the application
 
 Use **Tasks: Run Task** in VS Code:
-1. `P0: backend dev`
-2. `P0: frontend dev`
+1. `Backend: dev`
+2. `Frontend: dev`
 
 Alternatively, use two PowerShell terminals at the repository root:
 
@@ -59,6 +67,8 @@ npm --prefix frontend run dev
 ```
 
 - Workspace: <http://127.0.0.1:5173/>
+- Register: <http://127.0.0.1:5173/register>
+- Sign in: <http://127.0.0.1:5173/login>
 - API health: <http://127.0.0.1:8000/api/health>
 - API documentation: <http://127.0.0.1:8000/docs>
 
@@ -76,7 +86,7 @@ configuration. Do not stop unrelated processes if a port is occupied.
   "status": "ok",
   "service": "knowledge-decision-assistant",
   "version": "0.1.0",
-  "phase": "P0",
+  "phase": "P1",
   "gateway_configured": false
 }
 ```
@@ -87,12 +97,78 @@ credentials, or claims that later product features work.
 
 ```mermaid
 flowchart LR
-    Browser[React setup workspace] --> Proxy[Vite API proxy]
-    Proxy --> Health[FastAPI health endpoint]
+    Browser[React accounts and dashboard] --> Proxy[Vite API proxy]
+    Proxy --> API[FastAPI health and account APIs]
+    API --> Auth[Signed admin JWT and server-session validation]
+    Auth --> DB[(SQLite organisations / users / assistants / sessions)]
     Smoke[Explicit smoke-test CLI] --> PDFs[PDF text and page checks]
     Smoke --> Models[Local CPU embeddings and re-ranker]
     Smoke -->|With cost approval| Gateway[Gateway typed JSON check]
 ```
+
+## Accounts and sessions
+
+On first startup, the backend creates four tables: `organizations`, `users`,
+`assistants`, and `auth_sessions`. Registration creates all four records in one
+transaction and signs the owner in. A canonical email belongs to one account
+and one organisation in this MVP; organisation names need not be globally unique.
+
+The default database is `backend\data\assistant.db`. An independent, random JWT
+signing key is created once in `backend\data\auth-signing.key` unless an explicit
+`AUTH_SECRET_KEY` is supplied. Both are ignored by Git and reused after restart.
+Existing keys/databases are not overwritten. Changing the signing key invalidates
+existing JWTs; do not delete local data as part of ordinary setup.
+
+Passwords require at least 8 characters and at most 72 UTF-8 bytes, bcrypt's input
+limit. The original password whitespace is preserved, but all-whitespace passwords
+and null characters are rejected. Passwords are never returned in validation errors.
+
+The admin JWT is stored only in the `kda_admin` HttpOnly, SameSite=Lax cookie,
+scoped to `/api`. It has an explicit algorithm, issuer, audience, admin token type,
+expiry and session ID. Each authenticated request also verifies the database
+session, user and organisation. A public assistant token cannot authenticate an
+admin request. No JWT is returned in JSON or stored in browser web storage.
+
+Sessions last 8 hours by default. Logout revokes **only the current session** and
+deletes its cookie; replaying that cookie is rejected, while other devices remain
+signed in. Registration creates an assistant token, but its publishing/link UI
+is intentionally deferred to P3.
+
+| API | Result |
+|---|---|
+| `POST /api/auth/register` | 201; creates an organisation/owner/assistant/session and sets the cookie |
+| `POST /api/auth/login` | 200; verifies credentials and sets a new session cookie |
+| `GET /api/auth/me` | Current user, organisation and session expiry; 401 when unauthenticated |
+| `POST /api/auth/logout` | 204; revokes the current session and clears its cookie |
+| `GET /api/organizations/{id}` | Own organisation only; another or unknown organisation returns 404 |
+
+Registration accepts `organization_name`, `full_name`, `email`, and `password`.
+Login accepts `email` and `password`. Extra fields such as `org_id` or `role` are
+rejected; the server determines the organisation.
+
+Account-changing requests require an exact allowed `Origin` header. Browser
+requests provide it automatically through Vite's same-origin API proxy. CLI/API
+clients must supply an allowed origin explicitly. Do not enable wildcard origins
+or permissive credentialed CORS to bypass this protection.
+
+| Setting | Default / purpose |
+|---|---|
+| `DATABASE_PATH` | `data/assistant.db`, relative to the backend directory |
+| `AUTH_SECRET_KEY` | Empty uses the local generated key; explicit keys must be random and at least 32 bytes |
+| `AUTH_SECRET_FILE` | `data/auth-signing.key`, relative to the backend directory |
+| `AUTH_SESSION_MINUTES` | `480`; allowed range 1-1440 |
+| `AUTH_COOKIE_SECURE` | `false` for local HTTP only; **set true for an HTTPS deployment** |
+| `AUTH_ALLOWED_ORIGINS` | Explicit loopback origins for ports 5173, 4173 and 8000; replace for deployment |
+
+Errors have the shape `{error: {code, message, request_id, fields?}}`; responses
+include `X-Request-ID` and `Cache-Control: no-store`. Invalid input is 400, invalid
+credentials/session 401, forbidden origin 403, duplicate email 409, and a database
+or authentication-storage failure 503. Failure responses never imply a successful login.
+
+This is local hackathon authentication, not a complete production identity system.
+Email verification, password reset, invitations, authentication rate limiting and
+versioned schema migrations remain production improvements. Database startup only
+creates missing tables; it is not a migration/reset tool.
 
 ## Stack smoke checks
 
@@ -173,9 +249,13 @@ npm --prefix frontend test
 npm --prefix frontend run build
 ```
 
-The backend gateway tests and frontend health tests use mocked HTTP transports.
-They do not incur gateway charges. Frontend builds include TypeScript checking.
-The `P0: frontend build` VS Code task runs the same build command.
+The auth tests use temporary databases and separate test-only signing keys.
+They cover registration rollback/concurrency, password boundaries, signature and
+claim validation, origin protection, current-session revocation, restart persistence,
+and account-level tenant isolation. Document-level isolation tests follow in P2/P3.
+The backend gateway and frontend API tests use mocked HTTP transports and do not
+incur gateway charges. Frontend builds include TypeScript checking.
+The `Frontend: build` VS Code task runs the same build command.
 
 P0 checkpoint verified on 27 September 2026:
 - **33 backend tests** and **15 frontend tests** passed.
@@ -186,6 +266,18 @@ P0 checkpoint verified on 27 September 2026:
 - The real browser/API integration, a simulated HTTP failure followed by retry,
   and desktop/mobile layouts (1440 px / 390 px) passed.
 
+P1 checkpoint verified on 27 September 2026:
+- **84 backend tests** and **55 frontend tests** passed.
+- Python lint/format checks, TypeScript checking and the production frontend build passed.
+- Browser registration, automatic sign-in, dashboard navigation, reload persistence,
+  wrong-password feedback, sign-out and protected-route redirects passed.
+- Simulated session-verification and sign-out outages showed explicit errors;
+  retries recovered without pretending a failed request succeeded.
+- The real frontend proxy preserved private cookie flags and authenticated
+  organisation access. Logout from a separate client did not revoke the browser's session.
+- Desktop/mobile dashboard layouts (1440 px / 390 px) had no horizontal overflow.
+- No gateway calls were needed for P1.
+
 The current Starlette test client emits a non-blocking upstream deprecation warning
 about its `httpx` transport; assertions still pass. Node's built-in TypeScript
 stripping can emit an experimental warning on Node 22.
@@ -193,11 +285,12 @@ stripping can emit an experimental warning on Node 22.
 ## Manual phase checkpoints
 
 All staging, branch selection, commits and pushes are performed **manually by the
-project owner**. P0 stops here for review; P1 starts only after the owner's go-ahead.
-Suggested P0 message:
+project owner**. P0 was committed and pushed as `c22d4df`. P1 stops for review and a
+manual commit before P2 begins.
+Suggested P1 message:
 
 ```text
-chore: project setup, sample policies, smoke test
+feat(auth): organisation registration, login, dashboard shell
 ```
 
 Do not include the local environment file, model cache, virtual environment,

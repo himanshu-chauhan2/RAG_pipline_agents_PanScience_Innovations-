@@ -11,7 +11,7 @@ def test_health_response_contract() -> None:
         "status": "ok",
         "service": "knowledge-decision-assistant",
         "version": "0.1.0",
-        "phase": "P0",
+        "phase": "P1",
         "gateway_configured": False,
     }
 

@@ -2,7 +2,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "P0: frontend build",
+			"label": "Frontend: build",
 			"type": "shell",
 			"command": "npm",
 			"args": [
@@ -16,7 +16,7 @@
 			"group": "build"
 		},
 		{
-			"label": "P0: backend dev",
+			"label": "Backend: dev",
 			"type": "shell",
 			"command": "uv",
 			"args": [
@@ -34,7 +34,7 @@
 			"problemMatcher": []
 		},
 		{
-			"label": "P0: frontend dev",
+			"label": "Frontend: dev",
 			"type": "shell",
 			"command": "npm",
 			"args": [

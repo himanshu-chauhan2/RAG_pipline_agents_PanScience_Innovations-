@@ -5,6 +5,7 @@ from pydantic import Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+SESSION_COOKIE_NAME = "kda_admin"
 
 
 class Settings(BaseSettings):
@@ -30,6 +31,19 @@ class Settings(BaseSettings):
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     models_cache_dir: Path = BACKEND_DIR / ".cache" / "models"
     model_threads: int = Field(default=2, ge=1, le=8)
+    database_path: Path = BACKEND_DIR / "data" / "assistant.db"
+    auth_secret_key: SecretStr = SecretStr("")
+    auth_secret_file: Path = BACKEND_DIR / "data" / "auth-signing.key"
+    auth_session_minutes: int = Field(default=480, ge=1, le=1440)
+    auth_cookie_secure: bool = False
+    auth_allowed_origins: list[str] = [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:4173",
+        "http://localhost:4173",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ]
 
     @field_validator("llm_base_url", mode="before")
     @classmethod
@@ -45,10 +59,37 @@ class Settings(BaseSettings):
             raise ValueError("Use a gateway base URL without credentials, query, or fragment")
         return value
 
-    @field_validator("models_cache_dir")
+    @field_validator("models_cache_dir", "database_path", "auth_secret_file")
     @classmethod
-    def resolve_cache_directory(cls, value: Path) -> Path:
+    def resolve_backend_path(cls, value: Path) -> Path:
         return value if value.is_absolute() else BACKEND_DIR / value
+
+    @field_validator("auth_secret_key")
+    @classmethod
+    def require_strong_signing_key(cls, value: SecretStr) -> SecretStr:
+        key = value.get_secret_value()
+        if key and (not key.strip() or len(key.encode("utf-8")) < 32):
+            raise ValueError("AUTH_SECRET_KEY must contain at least 32 bytes, or be left empty")
+        return value
+
+    @field_validator("auth_allowed_origins")
+    @classmethod
+    def validate_auth_origins(cls, values: list[str]) -> list[str]:
+        if not values:
+            raise ValueError("At least one explicit authentication origin is required")
+        origins: list[str] = []
+        for value in values:
+            url = HttpUrl(value)
+            if (
+                url.username
+                or url.password
+                or url.query
+                or url.fragment
+                or url.path not in (None, "/")
+            ):
+                raise ValueError("Authentication origins must contain only scheme, host and port")
+            origins.append(str(url).rstrip("/"))
+        return list(dict.fromkeys(origins))
 
     @property
     def gateway_configured(self) -> bool:

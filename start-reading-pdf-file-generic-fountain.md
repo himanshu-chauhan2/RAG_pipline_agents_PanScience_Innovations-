@@ -15,7 +15,7 @@ The part that carries 55% of the grade: the **LLM must work with separate "Syste
 
 **Goal:** ship in 2–3 days as a working GitHub repo with `.env.example`, sample data for 2 orgs, a README and a demo video. Work on **one phase at a time**: implement, verify, then hand over for your review and **manual commit**. Do not start the next phase until you approve proceeding.
 
-**Current checkpoint:** P0 implemented and verified; ready for your review and manual commit. P1 has not started. You will make all commits manually. The estimates below total roughly 27 hours and are targets, not a reason to skip validation.
+**Current checkpoint:** you committed and pushed P0 (`c22d4df`). P1 is implemented and verified, ready for your review and manual commit. P2 has not started. The estimates below total roughly 27 hours and are targets, not a reason to skip validation.
 
 **Your decisions so far:**
 - **LLM:** OpenAI models via your gateway (URL + key in `.env`).
@@ -23,6 +23,8 @@ The part that carries 55% of the grade: the **LLM must work with separate "Syste
 - **Frontend:** React + Vite + TS + Tailwind.
 - **Orchestration:** plain async Python.
 - **Clarification context:** bounded chat history kept in browser memory and resent with the question; no conversation database table.
+- **Dashboard authentication:** HttpOnly-cookie JWTs backed by revocable server sessions, as selected for P1. Logout revokes only the current session; other devices remain signed in.
+- **Submission context:** built for the PanScience Innovations hackathon. The assignment remains the requirements checklist; the company website informs product positioning, not invented internal policies or official affiliation.
 
 **Environment:**
 - **Repo:** `C:\Users\HimanshuChauhan\Desktop\RAG_with_agents` (origin `himanshu-chauhan2/RAG_pipline_agents_PanScience_Innovations-`).
@@ -83,10 +85,11 @@ The chat widget shows a collapsible **"How I decided"** panel with steps 2–7: 
 | Library | Why | Why not the alternative |
 |---|---|---|
 | **fastapi** + uvicorn | Async web API with typed Pydantic requests and decisions, plus generated `/docs`. Offload blocking model inference to a bounded worker/thread pool; async alone does not parallelise CPU work | Flask would need additional API validation conventions |
-| **sqlalchemy** + **SQLite** | Database in one file with nothing to install. Switching to Postgres later is a URL change | Postgres needs an install or Docker |
+| **sqlalchemy** + **SQLite** | Database in one file with nothing to install. ORM models keep a later Postgres migration manageable; a driver, configuration and migration testing will still be needed | Postgres needs an install or Docker |
 | **pydantic-settings** | Reads `.env` into typed config (gateway URL, key, model names, limits) | Scattered `os.environ` calls |
 | **bcrypt** | Password hashing | passlib: unmaintained, breaks with new bcrypt |
-| **pyjwt** | Login token for the org dashboard | — |
+| **pyjwt** | Signed admin JWT in an HttpOnly cookie, backed by a revocable database session | — |
+| **email-validator** | Validates email addresses through Pydantic; canonical email uniqueness is enforced by the database | Avoid a hand-written email regex |
 | **python-multipart** | FastAPI needs it for file uploads | — |
 | **pypdf** | Reads PDFs **page by page**, so every chunk keeps its page number for references. Also counts pages and detects encryption. Pure Python | PyMuPDF: AGPL licence |
 | **fastembed** | Runs two small models **locally on CPU**: embeddings (`bge-small-en`) for search, and a cross-encoder re-ranker for Score/Choice. No PyTorch (saves ~2 GB) and no extra API cost | sentence-transformers pulls in PyTorch |
@@ -148,12 +151,13 @@ sample_data/                     policy texts → PDFs for 2 orgs · classifier_
 scripts/                         smoke_test.py · make_sample_pdfs.py · seed_demo.py · run_eval.py
 ```
 
-**Database tables (6):**
+**Database tables (7; 4 introduced in P1):**
 - `organizations`, `users`, `assistants` (org_id, token).
+- `auth_sessions` (user_id, expiry, revoked_at); the user relation resolves the organisation. This table is the intentional addition for reliable per-session logout.
 - `documents` (org_id, name, pages, size, status, error), `chunks` (org_id, document_id, page, text, embedding).
 - `question_logs` (org_id, question, type, status, error_code, latency, llm_call_count).
 
-Every query filters by `org_id`, which comes from the login token or the assistant token, **never from the request body**.
+Every tenant-resource query filters by the verified `org_id`, resolved from the admin session or assistant token, **never from a caller-supplied organisation field**. Login performs a canonical-email lookup before tenant resolution; only a verified password and matching server session can expose the resulting account.
 Chat history stays in browser memory; no conversation table is needed for this MVP. Store outcome/error metadata for usage counts; do not log credentials or private reasoning.
 
 ---
@@ -183,7 +187,7 @@ Chat history stays in browser memory; no conversation table is needed for this M
 | P6 | Evaluation, packaging, documentation and demo | P5 verified and committed |
 
 ### P0 — Setup & smoke test · ~2 h
-- **Status:** implemented and verified on 27 September 2026; awaiting your manual commit and go-ahead for P1.
+- **Status:** implemented, verified, and manually committed/pushed as `c22d4df`.
 - Backend skeleton (`/api/health`), frontend skeleton, `.env.example`, `.gitignore` (`.env`, models, DB, uploads, the assignment PDF).
 - **`scripts/smoke_test.py`** answers "will our stack work on this machine and gateway?" before we build on it:
   - one gateway call per model, with a typed JSON response
@@ -210,10 +214,19 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `chore: project setup, sample policies, smoke test`
 
 ### P1 — Organisation accounts · ~3 h
+- **Status:** implemented and verified on 27 September 2026; awaiting your manual commit and go-ahead for P2.
 - Register (creates the org, the admin user and the assistant token), login, logout.
+- SQLite persists organisations, users, assistant tokens and revocable admin sessions. Registration is atomic; the database enforces one account per canonical email.
+- Passwords use bcrypt with an 8-character minimum and a 72-UTF-8-byte maximum. Password whitespace is preserved; blank passwords are rejected.
+- Admin JWTs have a fixed algorithm, issuer, audience, expiry, session ID and token type. The API also validates session ownership, expiry and revocation in the database. Assistant tokens cannot authenticate admin requests.
+- Cookies are HttpOnly, SameSite=Lax and scoped to `/api`; HTTPS deployments must enable Secure cookies. Browser state contains account details, never the JWT. Sessions survive reload/restart and expire after 8 hours by default.
+- Account-changing requests require an explicitly allowed Origin. Validation errors contain safe field messages and a request ID, never the submitted password.
+- A random signing key is generated once in the ignored local data directory unless `AUTH_SECRET_KEY` is configured. Existing keys and databases are not overwritten.
+- APIs: register/login/logout/current account, plus an authenticated own-organisation endpoint; foreign or unknown organisation IDs return 404.
 - Dashboard shell with tabs: Knowledge Base / Assistant / Usage.
 - Tests: wrong password → 401; no login → 401; **org A's login cannot see org B's data (404)**.
 - **Acceptance:** register/login/logout work in the browser; the assistant token is separate from admin credentials; authentication and organisation-isolation tests pass.
+- **Verified checkpoint:** 84 backend tests and 55 frontend tests pass, along with lint/format and the TypeScript/production build. Browser registration, login/logout, wrong-password feedback, session reload persistence, protected routes, all dashboard tabs, failure/retry states and desktop/mobile layout checks pass. Cookie flags and tenant-scoped account access are verified; no live LLM calls were made.
 - *Commit:* `feat(auth): organisation registration, login, dashboard shell`
 
 ### P2 — Knowledge base · ~4 h
