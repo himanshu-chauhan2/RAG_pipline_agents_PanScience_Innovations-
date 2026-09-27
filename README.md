@@ -6,6 +6,10 @@ See the [implementation plan](start-reading-pdf-file-generic-fountain.md) for th
 Built as an independent hackathon submission for [PanScience Innovations](https://www.panscience.xyz/).
 The demo policies are fictional, not PanScience's internal policies.
 
+**Recording your submission?** Follow the [8–12 minute demo script and Windows
+screen-recording guide](demo/recording-script.md). It translates the architecture
+diagram into plain language and lists the exact pages and questions to show.
+
 ## Run and check the demo
 
 Use **Windows PowerShell** from the repository root. Install Python 3.12, `uv`,
@@ -109,8 +113,13 @@ the three gateway model roles passed earlier smoke checks.
 - API health: <http://127.0.0.1:8000/api/health>
 - API documentation: <http://127.0.0.1:8000/docs>
 
-See [backend/.env.example](backend/.env.example) for all settings. The copy
-command above never overwrites an existing `.env`. Both servers bind to
+See [backend/.env.example](backend/.env.example) for all settings and the
+[backend configuration guide](backend/CONFIGURATION_GUIDE.md) for what each
+value controls, why it exists, when to change it, and available alternatives.
+For the complete runtime path from account creation through PDF indexing and
+question answering, read the
+[backend flow guide](backend/BACKEND_FLOW_GUIDE.md). The copy command above
+never overwrites an existing `.env`. Both servers bind to
 loopback; Vite proxies `/api` to the backend, so gateway credentials are
 server-side only. Restart the backend after changing `.env`. Stop the
 processes with Ctrl+C or **Terminate Task**; do not stop unrelated services.
@@ -467,18 +476,8 @@ To demonstrate embedding on an unrelated page, open
 running. For a deployed site, replace the localhost URL with your deployed
 frontend origin.
 
-Suggested 8–15 minute video walkthrough (the video must be recorded and
-submitted by the project owner):
-1. Register/sign in and show the private organisation dashboard.
-2. Upload sample PDFs and wait for Ready; show page count, replacement and limits.
-3. Open the public assistant link in a private window and ask the Merit
-   Scholarship sports/need-based eligibility questions; inspect the rule checks
-   and document/page citations.
-4. Ask an Acme remote-work eligibility question and compare a pair of policies.
-5. Ask an out-of-scope/weather question; show the explicit non-answer.
-6. Show the iframe in the external demo page, then sign in to the other
-   organisation and demonstrate that its assistant cannot cite the first one's PDFs.
-7. Show the test output, architecture, local-run instructions and known limitations.
+For the minute-by-minute narration, browser route and Windows recording
+instructions, use the [demo recording guide](demo/recording-script.md).
 
 ## Verification commands
 
