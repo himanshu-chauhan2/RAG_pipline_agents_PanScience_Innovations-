@@ -504,15 +504,3 @@ organisations and browser checks of the public iframe, scholarship decision,
 GPA clarification, weather non-answer and cross-tenant isolation also passed.
 The current Starlette test client emits a non-blocking upstream deprecation
 warning; Node 22 may warn about experimental TypeScript stripping.
-
-## Submission handoff
-
-The project owner stages, commits and pushes manually. P0, P1 and P2 are
-already committed; P3–P6 changes are in the worktree. Review `git status`
-before staging, especially any unrelated editor settings. Do **not** include
-private `.env`, model cache, virtual environment, uploads, databases or the
-assignment PDF. The ignore rules exclude them.
-
-Before submitting, record and attach the required 8–15 minute video, confirm
-the repository URL is accessible to reviewers, and verify the configured live
-gateway answer path if you plan to demonstrate deadlines or comparisons.
