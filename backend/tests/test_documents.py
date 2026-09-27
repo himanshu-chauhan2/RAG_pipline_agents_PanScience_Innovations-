@@ -4,6 +4,12 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
+from conftest import ControlledEmbedder, make_pdf
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import event, func, select
+from sqlalchemy.exc import IntegrityError, OperationalError
+
 from app.auth.schemas import SessionSummary
 from app.config import Settings
 from app.db import Database
@@ -12,11 +18,6 @@ from app.kb.schemas import DocumentSummary
 from app.kb.service import IndexingService
 from app.kb.storage import StorageError
 from app.models import Chunk, Document
-from conftest import ControlledEmbedder, make_pdf
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import event, func, select
-from sqlalchemy.exc import IntegrityError, OperationalError
 
 
 @pytest.fixture

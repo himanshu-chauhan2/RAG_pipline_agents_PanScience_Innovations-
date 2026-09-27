@@ -7,8 +7,10 @@ import Icon from './components/Icon'
 import RequestError from './components/RequestError'
 import AuthPage from './pages/AuthPage'
 import DashboardLayout from './pages/DashboardLayout'
+import AssistantPage from './pages/AssistantPage'
 import FeaturePage from './pages/FeaturePage'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
+import PublicChatPage from './pages/PublicChatPage'
 
 const titles: Record<string, string> = {
   '/': 'Workspace',
@@ -159,7 +161,7 @@ function Workspace() {
           <Route path="/dashboard" element={<ProtectedDashboard />}>
             <Route index element={<Navigate to="knowledge-base" replace />} />
             <Route path="knowledge-base" element={<KnowledgeBasePage />} />
-            <Route path="assistant" element={<FeaturePage section="assistant" />} />
+            <Route path="assistant" element={<AssistantPage />} />
             <Route path="usage" element={<FeaturePage section="usage" />} />
           </Route>
           <Route path="*" element={<NotFound />} />
@@ -170,12 +172,18 @@ function Workspace() {
   )
 }
 
+function AppRoutes() {
+  const { pathname } = useLocation()
+  if (/^\/a\/[^/]+\/?$/.test(pathname)) {
+    return <Routes><Route path="/a/:token" element={<PublicChatPage key={pathname} />} /></Routes>
+  }
+  return <AuthProvider><Workspace /></AuthProvider>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Workspace />
-      </AuthProvider>
+      <AppRoutes />
     </BrowserRouter>
   )
 }

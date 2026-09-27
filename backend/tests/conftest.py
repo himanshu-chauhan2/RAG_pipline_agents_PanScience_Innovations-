@@ -6,16 +6,17 @@ from threading import Event
 
 import numpy as np
 import pytest
-from app.auth import security
-from app.auth.schemas import SessionSummary
-from app.config import Settings
-from app.db import Database
-from app.main import create_app
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from numpy.typing import NDArray
 from pydantic import SecretStr
 from reportlab.pdfgen.canvas import Canvas
+
+from app.auth import security
+from app.auth.schemas import SessionSummary
+from app.config import Settings
+from app.db import Database
+from app.main import create_app
 
 
 @pytest.fixture(autouse=True)

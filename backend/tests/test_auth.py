@@ -5,6 +5,11 @@ from uuid import UUID
 
 import jwt
 import pytest
+from fastapi.testclient import TestClient
+from pydantic import SecretStr, ValidationError
+from sqlalchemy import event, func, select
+from sqlalchemy.exc import IntegrityError
+
 from app.auth.schemas import SessionSummary
 from app.auth.security import (
     decode_session_token,
@@ -15,10 +20,6 @@ from app.config import SESSION_COOKIE_NAME, Settings
 from app.db import Database
 from app.main import create_app
 from app.models import Assistant, AuthSession, Organization, User, unix_time
-from fastapi.testclient import TestClient
-from pydantic import SecretStr, ValidationError
-from sqlalchemy import event, func, select
-from sqlalchemy.exc import IntegrityError
 
 
 def test_registration_creates_an_atomic_private_workspace(

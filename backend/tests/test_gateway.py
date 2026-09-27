@@ -3,6 +3,9 @@ import json
 
 import httpx
 import pytest
+from openai import APIStatusError, AsyncOpenAI
+from scripts import smoke_test
+
 from app.config import Settings
 from app.llm.client import (
     GatewayConfigurationError,
@@ -11,9 +14,6 @@ from app.llm.client import (
     create_gateway_client,
     request_smoke_acknowledgement,
 )
-from openai import APIStatusError, AsyncOpenAI
-
-from scripts import smoke_test
 
 
 def settings_for_test(**overrides: object) -> Settings:

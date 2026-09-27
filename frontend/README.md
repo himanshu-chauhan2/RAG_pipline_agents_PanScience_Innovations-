@@ -1,15 +1,16 @@
-# Frontend · P2 private PDF knowledge base
+# Frontend · private knowledge base and public assistant
 
 An **independent PanScience hackathon submission**, not an official PanScience
 service. React, Vite, TypeScript, Tailwind and React Router provide organisation
 accounts, a private PDF knowledge base, upload/replacement/deletion controls,
-local indexing status and backend health diagnostics.
+local indexing status, a public assistant chat, iframe code and backend health diagnostics.
 
-Grounded answers, decision models, assistant publishing, public links, embedding
-and usage reporting are **not implemented in P2**. Assistant and Usage routes
-remain explicitly labelled future-feature pages. There are no fake metrics,
-percentage estimates, PDF download/open links or non-working publish links.
-Assistant tokens are not requested or displayed.
+The Assistant dashboard loads the authenticated owner's token and gives a
+working public URL and iframe embed snippet. The public chat runs outside the
+admin session gate, shows source pages and a structured decision trace, and
+distinguishes missing facts and missing evidence from request errors. Usage
+reporting, token rotation and script embedding are **not implemented**; there
+are no fake metrics or PDF download links.
 
 ## Local development
 
@@ -43,8 +44,9 @@ browser storage or `VITE_*` environment variables.
 | `/register` | Creates an organisation account and signs in automatically. |
 | `/dashboard` | Protected; redirects to Knowledge Base. |
 | `/dashboard/knowledge-base` | Private document list, real quota, uploads, safe replacement and confirmed deletion. |
-| `/dashboard/assistant` | Explicitly unimplemented publishing/chat state for P3–P5. |
-| `/dashboard/usage` | Explicitly unimplemented usage reporting state for P5. |
+| `/dashboard/assistant` | Owner-only assistant link and iframe embed code. |
+| `/a/:token` | Public assistant chat; no admin sign-in needed. |
+| `/dashboard/usage` | Explicitly unimplemented usage reporting. |
 
 Redirect destinations are fixed application paths. User-supplied return URLs
 are not accepted, preventing open redirects.
@@ -199,6 +201,25 @@ A document has `id`, `name`, `pages`, `size_bytes`, `status`, nullable
 validate status values, integer counts, timestamps, published limits, unique
 IDs and list/quota consistency. Only documented metadata is retained.
 
+## Public assistant
+
+`GET /api/assistant` requires the owner's cookie and returns this organisation's
+token. The dashboard displays the full public URL and copyable iframe HTML;
+clipboard failures explain how to copy manually. The URL should be shared only
+for documents intended for public visitors.
+
+`/a/:token` deliberately does **not** bootstrap an admin session. It calls
+`POST /api/ask` with the token, current question and up to ten prior
+user/assistant messages. New chat, route/token change or page reload discards
+that browser-memory history; once five exchanges are reached, the form asks the
+visitor to begin a new chat rather than silently removing older facts. The
+backend may return `answered`, `needs_info` or `insufficient_evidence`; the UI
+shows actual PDF filenames/pages, source excerpts, eligibility checks and
+explicit processing errors. The question limit is 1,000 characters; the
+backend, not browser code, authorizes the token and validates all inputs.
+Live direct/compare questions may send retrieved PDF text to the configured
+LLM gateway and incur costs.
+
 ## Account form validation
 
 The server is authoritative; client checks provide immediate field feedback:
@@ -265,7 +286,7 @@ updated for the current backend phase:
   "status": "ok",
   "service": "knowledge-decision-assistant",
   "version": "0.1.0",
-  "phase": "P2",
+  "phase": "P5",
   "gateway_configured": false
 }
 ```

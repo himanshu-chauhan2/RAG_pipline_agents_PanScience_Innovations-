@@ -1,11 +1,12 @@
+from conftest import make_pdf, pad_pdf
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+
 from app.auth.schemas import SessionSummary
 from app.config import Settings
 from app.db import Database
 from app.kb.limits import MAX_MULTIPART_BYTES, MAX_PDF_BYTES
 from app.models import Document
-from conftest import make_pdf, pad_pdf
-from fastapi.testclient import TestClient
-from sqlalchemy import func, select
 
 
 def test_unauthenticated_upload_is_rejected_before_body_parsing(

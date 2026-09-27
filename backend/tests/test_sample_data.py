@@ -3,7 +3,6 @@ from shutil import copyfile
 
 import pytest
 import yaml
-
 from scripts.make_sample_pdfs import generate_pdfs, validate_pdf
 from scripts.sample_data import (
     DATA_DIR,

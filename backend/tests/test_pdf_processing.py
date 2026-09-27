@@ -2,12 +2,13 @@ from io import BytesIO
 
 import numpy as np
 import pytest
+from conftest import make_pdf, pad_pdf
+from pypdf import PdfReader, PdfWriter
+
 from app.errors import ApiError
 from app.kb.embeddings import normalize_embeddings
 from app.kb.limits import CHUNK_CHARACTERS, MAX_PDF_BYTES
 from app.kb.pdf import prepare_pdf, split_page
-from conftest import make_pdf, pad_pdf
-from pypdf import PdfReader, PdfWriter
 
 
 def test_page_provenance_and_display_name() -> None:

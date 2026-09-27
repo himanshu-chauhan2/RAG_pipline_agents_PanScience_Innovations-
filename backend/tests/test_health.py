@@ -1,6 +1,7 @@
+from fastapi.testclient import TestClient
+
 from app.config import Settings
 from app.main import create_app
-from fastapi.testclient import TestClient
 
 
 def test_health_response_contract() -> None:
@@ -11,7 +12,7 @@ def test_health_response_contract() -> None:
         "status": "ok",
         "service": "knowledge-decision-assistant",
         "version": "0.1.0",
-        "phase": "P2",
+        "phase": "P5",
         "gateway_configured": False,
     }
 
@@ -35,6 +36,13 @@ def test_openapi_documents_the_real_health_endpoint() -> None:
     assert "/api/health" in response.json()["paths"]
 
 
-def test_unimplemented_ask_api_is_not_a_fake_success() -> None:
-    client = TestClient(create_app(Settings(_env_file=None)))
-    assert client.post("/api/ask", json={"token": "demo", "question": "Hello"}).status_code == 404
+def test_ask_rejects_unknown_assistant_token(tmp_path) -> None:
+    settings = Settings(
+        _env_file=None,
+        database_path=tmp_path / "health.db",
+        auth_secret_file=tmp_path / "auth.key",
+    )
+    with TestClient(create_app(settings)) as client:
+        response = client.post("/api/ask", json={"token": "unknown", "question": "Hello"})
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "invalid_assistant_token"

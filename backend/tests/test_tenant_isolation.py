@@ -2,13 +2,14 @@ from uuid import uuid4
 
 import jwt
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
 from app.auth.schemas import SessionSummary
 from app.auth.security import decode_session_token
 from app.config import SESSION_COOKIE_NAME, Settings
 from app.db import Database
 from app.models import Assistant
-from fastapi.testclient import TestClient
-from sqlalchemy import select
 
 
 @pytest.fixture

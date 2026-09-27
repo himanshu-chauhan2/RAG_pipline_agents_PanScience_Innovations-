@@ -27,7 +27,7 @@ export function Header({ children }: { children?: ReactNode }) {
       </Link>
       <div className="flex flex-wrap items-center gap-4 sm:gap-6">
         <span className="hidden rounded-full border border-line px-3 py-1.5 text-xs font-medium text-muted md:inline-flex">
-          P2 · Knowledge Base
+          Hackathon demo
         </span>
         <a
           href="http://127.0.0.1:8000/docs"
@@ -53,7 +53,7 @@ export function Footer() {
         <br />
         Not an official PanScience service.
       </p>
-      <p>Knowledge &amp; Decision Assistant <span aria-hidden="true">/</span> P2</p>
+      <p>Knowledge &amp; Decision Assistant <span aria-hidden="true">/</span> demo</p>
     </footer>
   )
 }

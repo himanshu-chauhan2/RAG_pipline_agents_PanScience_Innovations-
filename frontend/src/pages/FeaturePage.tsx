@@ -63,7 +63,7 @@ export default function FeaturePage({ section }: { section: FeatureSection }) {
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-muted">{feature.emptyDescription}</p>
           <span className="mt-6 inline-flex items-center gap-2 rounded-full bg-canvas px-3 py-1.5 text-xs font-medium text-muted">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-            Not available in P2
+            Not available in this demo
           </span>
         </div>
         <p className="border-t border-line bg-canvas/60 px-6 py-4 text-xs leading-6 text-muted sm:px-8">

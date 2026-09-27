@@ -1,13 +1,14 @@
+from conftest import ControlledEmbedder, make_pdf
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
 from app.auth.schemas import SessionSummary
 from app.config import SESSION_COOKIE_NAME
 from app.db import Database
 from app.kb.index import load_ready_chunks
 from app.kb.service import IndexingService
 from app.models import Assistant
-from conftest import ControlledEmbedder, make_pdf
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import select
 
 
 def test_document_metadata_mutations_and_index_are_tenant_isolated(

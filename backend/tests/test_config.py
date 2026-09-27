@@ -1,6 +1,7 @@
 import pytest
-from app.config import BACKEND_DIR, Settings
 from pydantic import ValidationError
+
+from app.config import BACKEND_DIR, Settings
 
 
 def test_empty_gateway_settings_are_explicitly_unconfigured() -> None:

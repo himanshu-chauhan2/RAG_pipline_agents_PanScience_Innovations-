@@ -15,7 +15,9 @@ The part that carries 55% of the grade: the **LLM must work with separate "Syste
 
 **Goal:** ship in 2–3 days as a working GitHub repo with `.env.example`, sample data for 2 orgs, a README and a demo video. Work on **one phase at a time**: implement, verify, then hand over for your review and **manual commit**. Do not start the next phase until you approve proceeding.
 
-**Current checkpoint:** P1 is committed as `5331ce6`; P2 implementation and verification are in progress. All staging, commits and pushes remain under your control. The estimates below total roughly 27 hours and are targets, not a reason to skip validation.
+**Current checkpoint:** P0, P1 and P2 are committed (`c22d4df`, `5331ce6`, `e10a4c8`). For the submission deadline, the owner requested that the remaining work proceed immediately rather than waiting for a review and commit between each phase. P3–P6 are being implemented as a focused end-to-end MVP; staging, commits and pushes remain under your control. The original estimates below are planning targets, not a reason to skip validation or claim unbuilt features.
+
+**Deadline-driven scope and verified progress:** The P3/P4 API now resolves a tenant from its assistant token, retrieves Ready chunks and exposes source-page references, explicit non-answers and PDF-backed structured checks for the fictional Merit Scholarship, remote-work and travel-approval policies. All 9 mandatory fixture cases pass with real local search models and a **test answer generator**; the new live gateway answer path remains unverified without approval for paid calls. The P5 public chat, owner link and iframe demo work locally; usage UI, token rotation and script embed are deferred. A process-local per-organisation rate limit is implemented, but it is not distributed. P6 includes two-organisation seeding, an evaluation runner and README/video outline, **not** the mandatory recorded video or a hosted deployment. The classifier uses rule patterns, not the planned trained logistic-regression model; generic LLM rule extraction and claim-level semantic verification are also deferred. See the README's limitations before presenting any phase as fully complete.
 
 **Your decisions so far:**
 - **LLM:** OpenAI models via your gateway (URL + key in `.env`).
@@ -167,9 +169,9 @@ Chat history stays in browser memory; no conversation table is needed for this M
 
 **Planning checkpoint:** the revised plan is approved for implementation. You decide whether to commit the plan separately or with P0. The assistant must not stage, commit, switch/create branches, amend, merge or push; all Git write operations remain manual.
 
-**Implementation sequence: P0 → P1 → P2 → P3 → P4 → P5 → P6, one commit per phase.**
+**Original implementation sequence: P0 → P1 → P2 → P3 → P4 → P5 → P6.** The deadline-driven request supersedes the pause between P3–P6. The owner still performs every commit manually; split the final work into separate commits only if there is time to verify each independently.
 
-**Checkpoint at the end of every phase, without exceptions:**
+**Original checkpoint procedure (followed for P0–P2; P3–P6 pause waived for the deadline):**
 1. Implement only that phase and its directly related tests/documentation.
 2. Run the relevant checks: targeted backend tests and lint, frontend build/type-check when frontend changes, and a browser click-through for changed UI. P6 runs the full release checks.
 3. Fix failures before calling the phase complete. Show you what works, the checks/results, the exact files changed, and any libraries added with their reasons.
@@ -231,7 +233,7 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `feat(auth): organisation registration, login, dashboard shell`
 
 ### P2 — Knowledge base · ~4 h
-- **Status:** implementation complete; validating the live local-model and browser flows.
+- **Status:** implemented, verified and manually committed as `e10a4c8`. The P2 checkpoint passed 135 backend and 110 frontend tests, lint/format, production build, real local-model indexing of six sample PDFs, upload/replace/delete browser flows and tenant-switch isolation.
 - **Upload checks, each with a clear message:**
   - is it a real PDF
   - ≤ 10 MB, defined as 10,000,000 bytes
@@ -257,6 +259,9 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `feat(kb): PDF upload with limits, page-aware chunking, local embeddings`
 
 ### P3 — Ask API with grounded answers · ~4 h
+- **Deadline MVP status:** tenant-scoped Ask API, local retrieval/re-ranking,
+  page citations, no-answer and owner-only token lookup implemented. Quote
+  verification is literal, not full claim entailment; no token rotation.
 - Implement the shared `POST /api/ask {token, question, history?}` contract and response states. P3 delivers the direct-answer path; P4 adds clarification interpretation and decision routing.
   1. Validate token, question and history; resolve org.
   2. Retrieve from Ready documents in this org only, then re-rank.
@@ -276,6 +281,10 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `feat(ask): grounded answers with page references and tenant isolation tests`
 
 ### P4 — Decision engine: LLM + System 1 · ~6 h (the most important phase)
+- **Deadline MVP status:** PDF-backed Boolean checks for three fictional policy
+  families, rule-pattern classification, traces, comparison answering through
+  the model, and missing-fact clarification implemented. Trained classifier,
+  generic rule extraction and full ALL/ANY/NOT policy support remain planned.
 - **Classification:** train a logistic-regression model on question embeddings and evaluate on held-out data. Fresh, high-confidence simple questions use P3; eligibility/comparison use the relevant structured path. Every request with history goes through contextual understanding before retrieval/routing. Low confidence or `out_of_scope` triggers evidence-aware understanding/clarification, not automatic refusal. A classifier runtime failure is an explicit error, not a low-confidence prediction.
 - **LLM "understand":** sees the current question and bounded conversation data, not trusted prior answers. Return typed intent, user facts with their originating message spans, missing/ambiguous facts and search sub-queries. A follow-up is resolved against the original question.
 - **Choice, before rule evaluation:** use retrieved evidence to select the relevant programme/policy. Close candidates → `needs_info` asking which one. Never combine one policy's conditions with another's.
@@ -291,6 +300,10 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `feat(decisions): structured rules, comparisons, contextual clarification`
 
 ### P5 — Chat widget, embed & usage · ~4 h
+- **Deadline MVP status:** unauthenticated public chat, source/decision display,
+  bounded in-memory context, owner link and iframe code implemented. Process-local
+  per-organisation question/model-call limits are implemented; no script embed,
+  token rotation, usage dashboard or production framing policy.
 - **Public chat page `/a/:token`:** messages, loading state, reference chips, verdict badges for supported decisions, a collapsible **"How I decided"** panel, and distinct Need info / Insufficient evidence / Needs review / Processing error states.
 - Implement browser-memory history, **New chat**, token-change clearing and the shared context limits. Follow-up replies resend the original question and prior turns; do not silently lose facts when the context fills.
 - **Assistant tab:** copy the link, copy the iframe code, copy the `<script>` embed code, regenerate the token.
@@ -301,6 +314,10 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `feat(widget): public chat, embed code, usage dashboard`
 
 ### P6 — Ship it · ~4 h
+- **Deadline MVP status:** two-tenant demo seeder, 23-case evaluation CLI,
+  architecture/setup/limitations and video outline added. Live paid evaluation,
+  production start/deployment, detailed evaluation report and the owner's actual
+  8–15 minute recording are not complete.
 - **One command runs everything:** FastAPI serves the built frontend. Start scripts are `start.ps1` for Windows and `start.sh`.
 - `scripts/seed_demo.py` creates both demo orgs, uploads their PDFs and prints their assistant links.
 - `scripts/run_eval.py` runs the held-out test questions using the scoring contract below and writes `docs/eval_report.md`: per-case expectations/results, pass/fail reasons, category totals, timings and LLM call counts. It makes real gateway calls, so **I ask you before each run**.

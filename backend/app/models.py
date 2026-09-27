@@ -118,3 +118,17 @@ class Chunk(Base):
     page: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class QuestionLog(Base):
+    __tablename__ = "question_logs"
+    __table_args__ = (Index("ix_question_logs_org_created", "org_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    org_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[int] = mapped_column(Integer, default=unix_time, nullable=False)
