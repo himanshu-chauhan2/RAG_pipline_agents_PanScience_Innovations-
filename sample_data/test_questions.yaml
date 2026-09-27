@@ -1,0 +1,239 @@
+cases:
+  - id: nb-application-deadline
+    org: northbridge-university
+    category: direct
+    question: "On what date does the 2026 Merit Scholarship application close?"
+    mandatory_demo: true
+    expected:
+      status: answered
+      required_facts: {deadline_date: "2026-08-31", deadline_time: "17:00", timezone: "local university time"}
+      sources: [{document: Scholarship_Rules.pdf, page: 3}]
+  - id: nb-stacking-policy
+    org: northbridge-university
+    category: policy
+    question: "What kinds of existing scholarships can be combined with the Merit Scholarship?"
+    expected:
+      status: answered
+      required_facts: {permitted_existing_types: [need_based], sports_allowed: false}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+      forbidden_claims: ["All scholarship types may be combined."]
+  - id: nb-reevaluation-steps
+    org: northbridge-university
+    category: procedural
+    question: "Walk me through requesting an exam re-evaluation, including its deadline and fee."
+    expected:
+      status: answered
+      required_facts:
+        deadline_calendar_days: 7
+        fee_usd_per_paper: 25
+        steps: [complete_portal_form, pay_fee, attach_receipt, submit_request]
+      sources: [{document: Exam_Reevaluation_Procedure.pdf, page: 1}]
+  - id: nb-sports-ineligible
+    org: northbridge-university
+    category: multi_condition
+    question: "I am in year 2, my GPA is 3.6 out of 4, and I hold a sports scholarship. Am I eligible for the Merit Scholarship?"
+    decision_types: [classification, choice, boolean, score]
+    mandatory_demo: true
+    expected:
+      status: answered
+      verdict: not_eligible
+      decision_checks: {year_met: true, gpa_met: true, stacking_met: false}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+      forbidden_claims: ["A sports scholarship is an allowed stacking exception."]
+  - id: nb-need-based-eligible
+    org: northbridge-university
+    category: multi_condition
+    question: "Can I get the Merit Scholarship as a third-year student with a 3.7 GPA and only a need-based award?"
+    decision_types: [classification, boolean]
+    mandatory_demo: true
+    expected:
+      status: answered
+      verdict: eligible
+      decision_checks: {year_met: true, gpa_met: true, stacking_met: true}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+  - id: nb-missing-gpa
+    org: northbridge-university
+    category: multi_condition
+    question: "I am a second-year student with no existing scholarships. Can I qualify for the Merit Scholarship?"
+    decision_types: [classification, boolean]
+    mandatory_demo: true
+    expected:
+      status: needs_info
+      decision_checks: {year_met: true, gpa_met: null, stacking_met: true}
+      missing_fields: [gpa]
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+  - id: nb-gpa-clarification
+    org: northbridge-university
+    category: multi_condition
+    question: "3.6"
+    history:
+      - role: user
+        content: "I am a second-year student with no existing scholarships. Can I qualify for the Merit Scholarship?"
+      - role: assistant
+        content: "What is your GPA on the 4.00 scale?"
+    decision_types: [classification, boolean]
+    mandatory_demo: true
+    expected:
+      status: answered
+      verdict: eligible
+      decision_checks: {year_met: true, gpa_met: true, stacking_met: true}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+  - id: nb-mixed-scholarships
+    org: northbridge-university
+    category: multi_condition
+    question: "I am in year 3 with GPA 3.9 and both a sports scholarship and a need-based award. Can I also receive the Merit Scholarship?"
+    decision_types: [classification, boolean]
+    expected:
+      status: answered
+      verdict: not_eligible
+      decision_checks: {year_met: true, gpa_met: true, stacking_met: false}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+  - id: nb-gpa-boundary
+    org: northbridge-university
+    category: multi_condition
+    question: "My year is 2, my GPA is exactly 3.50, and I receive no scholarships. Do I meet Merit Scholarship eligibility?"
+    decision_types: [classification, boolean]
+    expected:
+      status: answered
+      verdict: eligible
+      decision_checks: {year_met: true, gpa_met: true, stacking_met: true}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+  - id: nb-gpa-below-boundary
+    org: northbridge-university
+    category: multi_condition
+    question: "I have GPA 3.49, am in my second year, and have no other scholarships. Am I eligible for merit funding?"
+    decision_types: [classification, boolean]
+    expected:
+      status: answered
+      verdict: not_eligible
+      decision_checks: {year_met: true, gpa_met: false, stacking_met: true}
+      sources: [{document: Scholarship_Rules.pdf, page: 1}]
+  - id: nb-room-comparison
+    org: northbridge-university
+    category: comparison
+    question: "Compare a single hostel room with a twin-sharing room on price and included facilities."
+    mandatory_demo: true
+    expected:
+      status: answered
+      required_facts:
+        single_monthly_usd: 280
+        twin_monthly_usd_per_resident: 180
+        shared_inclusions: [wifi, shared_laundry]
+        meals_included: false
+      sources: [{document: Hostel_Policy.pdf, page: 2}]
+  - id: nb-quiet-hours
+    org: northbridge-university
+    category: direct
+    question: "At what times must hostel residents observe quiet hours?"
+    expected:
+      status: answered
+      required_facts: {start_time: "22:00", end_time: "07:00", frequency: daily}
+      sources: [{document: Hostel_Policy.pdf, page: 1}]
+  - id: nb-weather-absent
+    org: northbridge-university
+    category: no_answer
+    question: "Will it rain in Northbridge tomorrow afternoon?"
+    mandatory_demo: true
+    expected:
+      status: insufficient_evidence
+      forbidden_claims: ["A weather forecast is available in these policies."]
+  - id: ac-remote-eligible
+    org: acme-logistics
+    category: multi_condition
+    question: "I am an analyst with exactly 6 months of service and a rating of 3.0. Am I eligible to request remote work?"
+    decision_types: [classification, choice, boolean]
+    mandatory_demo: true
+    expected:
+      status: answered
+      verdict: eligible
+      decision_checks: {tenure_met: true, rating_met: true, role_met: true}
+      required_facts: {schedule_requires_manager_approval: true}
+      sources:
+        - {document: Remote_Work_Policy.pdf, page: 1}
+        - {document: Remote_Work_Policy.pdf, page: 2}
+      forbidden_claims: ["Your remote-working schedule is already approved."]
+  - id: ac-driver-ineligible
+    org: acme-logistics
+    category: multi_condition
+    question: "As a delivery driver with 9 months of service and a 4.0 rating, can I request remote work?"
+    decision_types: [classification, boolean]
+    expected:
+      status: answered
+      verdict: not_eligible
+      decision_checks: {tenure_met: true, rating_met: true, role_met: false}
+      sources: [{document: Remote_Work_Policy.pdf, page: 1}]
+  - id: ac-missing-tenure
+    org: acme-logistics
+    category: multi_condition
+    question: "I am a finance associate with a performance rating of 3.5. Can I request remote work?"
+    decision_types: [classification, boolean]
+    expected:
+      status: needs_info
+      missing_fields: [tenure_months]
+      decision_checks: {tenure_met: null, rating_met: true, role_met: true}
+      sources: [{document: Remote_Work_Policy.pdf, page: 1}]
+  - id: ac-leave-balances
+    org: acme-logistics
+    category: direct
+    question: "How many annual-leave days and sick-leave days does a full-time employee receive each year?"
+    expected:
+      status: answered
+      required_facts: {annual_working_days: 18, sick_working_days: 10}
+      sources: [{document: Leave_Policy.pdf, page: 1}]
+  - id: ac-annual-leave-steps
+    org: acme-logistics
+    category: procedural
+    question: "How do I request planned annual leave, and how far in advance should I apply?"
+    expected:
+      status: answered
+      required_facts: {portal: HR, advance_working_days: 3, manager_approval_required: true}
+      sources: [{document: Leave_Policy.pdf, page: 1}]
+  - id: ac-travel-above-threshold
+    org: acme-logistics
+    category: policy
+    question: "Does a planned USD 500.01 business-travel expense require advance manager approval?"
+    decision_types: [classification, boolean]
+    expected:
+      status: answered
+      decision_checks: {advance_approval_required: true}
+      sources: [{document: Travel_Reimbursement.pdf, page: 2}]
+  - id: ac-travel-at-threshold
+    org: acme-logistics
+    category: policy
+    question: "Does a planned travel expense of exactly USD 500 require advance manager approval under the amount rule?"
+    decision_types: [classification, boolean]
+    expected:
+      status: answered
+      decision_checks: {advance_approval_required: false}
+      sources: [{document: Travel_Reimbursement.pdf, page: 2}]
+  - id: ac-leave-comparison
+    org: acme-logistics
+    category: comparison
+    question: "Compare annual leave and sick leave in entitlement, advance notice, and carry-over."
+    expected:
+      status: answered
+      required_facts:
+        annual_working_days: 18
+        sick_working_days: 10
+        annual_notice_working_days: 3
+        sick_advance_notice_required: false
+        annual_carryover_limit_days: 5
+        sick_carryover_allowed: false
+      sources:
+        - {document: Leave_Policy.pdf, page: 1}
+        - {document: Leave_Policy.pdf, page: 2}
+  - id: ac-scholarship-isolation
+    org: acme-logistics
+    category: no_answer
+    question: "What GPA does Northbridge University require for its Merit Scholarship?"
+    mandatory_demo: true
+    expected:
+      status: insufficient_evidence
+      forbidden_claims: ["The required GPA is 3.50."]
+  - id: nb-remote-work-isolation
+    org: northbridge-university
+    category: no_answer
+    question: "How many months must an Acme analyst work before requesting remote work?"
+    expected:
+      status: insufficient_evidence
+      forbidden_claims: ["Acme requires at least 6 completed months."]

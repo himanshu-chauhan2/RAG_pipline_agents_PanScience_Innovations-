@@ -1,0 +1,96 @@
+organizations:
+  - slug: northbridge-university
+    name: Northbridge University
+    documents:
+      - filename: Scholarship_Rules.pdf
+        title: Scholarship Rules
+        pages:
+          - heading: Merit Scholarship Eligibility
+            paragraphs:
+              - "This policy applies to the Northbridge University Merit Scholarship."
+              - "Applicants must satisfy ALL three conditions: be enrolled in year 2 or higher; have a GPA of at least 3.50 on a 4.00 scale; and satisfy the scholarship-stacking rule below."
+              - "The Merit Scholarship cannot be combined with other scholarships, except need-based awards. Every existing scholarship must be need-based. Holding no existing scholarships also satisfies this condition."
+              - "Sports scholarships and other merit scholarships are not allowed alongside this award. A student holding both a sports scholarship and a need-based award does not satisfy the stacking condition."
+              - "Meeting only some eligibility conditions is not sufficient. A GPA of exactly 3.50 satisfies the GPA requirement."
+          - heading: Merit Scholarship Award Tiers
+            paragraphs:
+              - "Award tiers apply only after all eligibility conditions on page 1 are satisfied."
+              - "Eligible applicants with GPA from 3.50 up to but not including 3.80 receive an award covering 20 percent of annual tuition."
+              - "Eligible applicants with GPA of 3.80 or above receive an award covering 40 percent of annual tuition."
+              - "The award does not cover hostel fees, meals, transport, or examination charges."
+          - heading: Application Procedure and Deadline
+            paragraphs:
+              - "The application deadline is 31 August 2026 at 5:00 PM local university time."
+              - "Submit the application through the university scholarship portal."
+              - "Attach a current transcript, proof of enrolment, and a declaration listing every existing scholarship."
+              - "Applications received after the deadline are not considered in this round."
+      - filename: Exam_Reevaluation_Procedure.pdf
+        title: Exam Re-evaluation Procedure
+        pages:
+          - heading: Requesting Re-evaluation
+            paragraphs:
+              - "Submit a re-evaluation request within 7 calendar days after examination results are published."
+              - "First complete the re-evaluation form in the examination portal. Then pay the USD 25 fee per paper and attach the payment receipt. Finally submit the completed request."
+              - "The request must identify the course, examination date, and paper to be reviewed."
+          - heading: Review Outcomes
+            paragraphs:
+              - "The examination office aims to issue the outcome within 10 working days after a complete request is received."
+              - "Re-evaluation can increase, decrease, or leave a grade unchanged."
+              - "The revised grade is final for this re-evaluation process."
+      - filename: Hostel_Policy.pdf
+        title: Hostel Policy
+        pages:
+          - heading: Resident Conduct
+            paragraphs:
+              - "Hostel accommodation is available to enrolled full-time Northbridge students, subject to room availability."
+              - "Quiet hours run from 10:00 PM until 7:00 AM every day."
+              - "Visitors are allowed from 9:00 AM until 7:00 PM. A resident must meet the visitor at reception and record the visit."
+          - heading: Room Options
+            paragraphs:
+              - "A twin-sharing room costs USD 180 per resident per month."
+              - "A single room costs USD 280 per month."
+              - "Both room types include Wi-Fi and access to shared laundry facilities."
+              - "Single rooms have limited availability. Meals are not included in either room price."
+  - slug: acme-logistics
+    name: Acme Logistics
+    documents:
+      - filename: Remote_Work_Policy.pdf
+        title: Remote Work Policy
+        pages:
+          - heading: Remote Work Eligibility
+            paragraphs:
+              - "An employee is eligible to request remote work only if ALL conditions hold: at least 6 completed months of service; a performance rating of at least 3.0 on a 1-to-5 scale; and a role that is not designated on-site."
+              - "Warehouse operators, delivery drivers, and security officers are on-site roles and are not eligible for remote work."
+              - "Analysts and finance associates are not designated on-site roles under this policy."
+              - "Exactly 6 months of service and a rating of exactly 3.0 meet the corresponding thresholds."
+          - heading: Scheduling and Approval
+            paragraphs:
+              - "Eligible employees may request up to 2 remote-working days per week."
+              - "Eligibility does not itself approve a schedule. A manager must approve the proposed remote-working days before the arrangement begins."
+              - "Approved remote-working days remain working days and do not consume annual leave."
+      - filename: Leave_Policy.pdf
+        title: Leave Policy
+        pages:
+          - heading: Annual and Sick Leave
+            paragraphs:
+              - "Full-time employees receive 18 working days of annual leave and 10 working days of sick leave per calendar year."
+              - "For planned annual leave, submit dates through the HR portal at least 3 working days in advance and obtain manager approval."
+              - "For sick leave, notify the manager as soon as reasonably possible and record the absence in the HR portal. Advance notice is not required."
+          - heading: Certificates and Carry-over
+            paragraphs:
+              - "A medical certificate is required for sick leave lasting 3 or more consecutive working days."
+              - "Up to 5 unused annual-leave days can be carried into the next calendar year."
+              - "Carried-over annual leave must be used by 31 March of the following year. Sick leave cannot be carried over."
+      - filename: Travel_Reimbursement.pdf
+        title: Travel Reimbursement
+        pages:
+          - heading: Eligible Claims
+            paragraphs:
+              - "Reimbursement applies to documented expenses for approved company business travel."
+              - "Attach itemised receipts and submit the claim through the expense portal within 30 calendar days after the trip ends."
+              - "Economy-class air travel is the standard reimbursable flight category under this policy."
+          - heading: Advance Approval Threshold
+            paragraphs:
+              - "A planned expense above USD 500 requires manager approval before it is incurred."
+              - "An expense of exactly USD 500 or less does not require advance manager approval under this threshold rule."
+              - "The receipt and business-purpose requirements on page 1 still apply regardless of amount."
