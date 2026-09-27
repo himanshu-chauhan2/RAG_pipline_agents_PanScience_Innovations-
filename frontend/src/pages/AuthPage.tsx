@@ -115,7 +115,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
         </h2>
         <p className="mt-5 max-w-lg text-base leading-7 text-muted sm:text-lg sm:leading-8">
           A dedicated workspace for your organisation, built one verified phase
-          at a time. Start with an account; grounded answers come next.
+          at a time. Manage private PDFs today; grounded answers come next.
         </p>
         <div className="mt-8 hidden max-w-lg rounded-xl border border-line bg-white/60 p-6 sm:block">
           <p className="mb-4 text-sm font-semibold">This checkpoint, honestly.</p>
@@ -128,9 +128,12 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
               <Icon name="lock" className="mt-0.5 size-5 text-accent" />
               A server-managed session, not a browser-stored token.
             </li>
+            <li className="flex items-start gap-3">
+              <Icon name="documents" className="mt-0.5 size-5 text-accent" />
+              Private PDF uploads, replacement and local indexing.
+            </li>
             <li className="border-t border-line pt-3">
-              Uploads, assistant publishing, chat and usage reporting are not
-              implemented in P1.
+              Assistant publishing, chat and usage reporting are not implemented in P2.
             </li>
           </ul>
         </div>

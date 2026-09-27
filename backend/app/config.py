@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     models_cache_dir: Path = BACKEND_DIR / ".cache" / "models"
     model_threads: int = Field(default=2, ge=1, le=8)
     database_path: Path = BACKEND_DIR / "data" / "assistant.db"
+    uploads_dir: Path = BACKEND_DIR / "uploads"
     auth_secret_key: SecretStr = SecretStr("")
     auth_secret_file: Path = BACKEND_DIR / "data" / "auth-signing.key"
     auth_session_minutes: int = Field(default=480, ge=1, le=1440)
@@ -59,7 +60,7 @@ class Settings(BaseSettings):
             raise ValueError("Use a gateway base URL without credentials, query, or fragment")
         return value
 
-    @field_validator("models_cache_dir", "database_path", "auth_secret_file")
+    @field_validator("models_cache_dir", "database_path", "auth_secret_file", "uploads_dir")
     @classmethod
     def resolve_backend_path(cls, value: Path) -> Path:
         return value if value.is_absolute() else BACKEND_DIR / value

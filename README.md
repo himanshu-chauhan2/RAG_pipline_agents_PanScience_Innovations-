@@ -6,12 +6,14 @@ See the [implementation plan](start-reading-pdf-file-generic-fountain.md) for th
 Built as a hackathon submission for [PanScience Innovations](https://www.panscience.xyz/).
 The demo policies are fictional, not PanScience's internal policies.
 
-## Current state: P1 organisation accounts
+## Current state: P2 PDF knowledge base
 
 Implemented:
 - Registration, login/logout and a protected organisation dashboard.
 - Persistent SQLite accounts, bcrypt password hashes and revocable HttpOnly-cookie sessions.
 - Tenant-scoped account access; another organisation's details return 404.
+- Private PDF upload, document listing, delete and atomic replacement.
+- Page-aware chunks, local CPU embeddings, and persistent Ready/Processing/Failed indexes.
 - React, Vite, TypeScript and Tailwind UI with account loading/error states,
   retry, and responsive layouts.
 - FastAPI health endpoint and typed backend configuration.
@@ -22,12 +24,11 @@ Implemented:
 - Separate classifier datasets: 96 training examples and 24 validation examples.
 - Offline tests, dependency lockfiles and VS Code tasks.
 
-**Not implemented yet:** PDF-upload APIs, tenant-scoped document retrieval, the
-decision engine, chat, assistant publishing, or embedding the assistant. The PDFs are
-fixtures, not an ingested knowledge base. The classifier dataset is not yet a
-trained classifier. The final live-answer evaluation belongs to later phases.
-The Knowledge Base / Assistant / Usage tabs clearly identify their later-phase
-features; they do not show fabricated usage counts or working upload controls.
+**Not implemented yet:** question retrieval/ranking, answer generation, the decision
+engine, chat, assistant publishing or embedding the assistant. Sample PDFs can now
+be uploaded into an organisation's knowledge base, but are not automatically seeded.
+The classifier dataset is not yet a trained classifier. Assistant/Usage tabs remain
+explicit later-phase placeholders; Knowledge Base now manages real documents.
 
 ## Local setup (Windows / PowerShell)
 
@@ -86,7 +87,7 @@ configuration. Do not stop unrelated processes if a port is occupied.
   "status": "ok",
   "service": "knowledge-decision-assistant",
   "version": "0.1.0",
-  "phase": "P1",
+  "phase": "P2",
   "gateway_configured": false
 }
 ```
@@ -97,10 +98,14 @@ credentials, or claims that later product features work.
 
 ```mermaid
 flowchart LR
-    Browser[React accounts and dashboard] --> Proxy[Vite API proxy]
-    Proxy --> API[FastAPI health and account APIs]
+    Browser[React accounts and knowledge base] --> Proxy[Vite API proxy]
+    Proxy --> API[FastAPI authenticated APIs]
     API --> Auth[Signed admin JWT and server-session validation]
     Auth --> DB[(SQLite organisations / users / assistants / sessions)]
+    API --> PDF[Bounded PDF validation and page chunks]
+    PDF --> Private[Private UUID-named PDF storage]
+    PDF --> Worker[Bounded local indexing worker]
+    Worker --> Index[(SQLite documents and chunks)]
     Smoke[Explicit smoke-test CLI] --> PDFs[PDF text and page checks]
     Smoke --> Models[Local CPU embeddings and re-ranker]
     Smoke -->|With cost approval| Gateway[Gateway typed JSON check]
@@ -108,8 +113,9 @@ flowchart LR
 
 ## Accounts and sessions
 
-On first startup, the backend creates four tables: `organizations`, `users`,
-`assistants`, and `auth_sessions`. Registration creates all four records in one
+The backend initializes six tables: `organizations`, `users`, `assistants`,
+`auth_sessions`, `documents`, and `chunks`. Existing P1 account data is retained.
+Registration creates the organisation, owner, assistant and session in one
 transaction and signs the owner in. A canonical email belongs to one account
 and one organisation in this MVP; organisation names need not be globally unique.
 
@@ -169,6 +175,90 @@ This is local hackathon authentication, not a complete production identity syste
 Email verification, password reset, invitations, authentication rate limiting and
 versioned schema migrations remain production improvements. Database startup only
 creates missing tables; it is not a migration/reset tool.
+
+## PDF knowledge base
+
+Open the Knowledge Base dashboard, select a searchable PDF, and upload it.
+Limits are enforced by the server, not just the browser:
+
+- At most **10 documents per organisation**, including Processing and Failed records.
+- At most **20 physical pages** per PDF.
+- At most **10,000,000 bytes** per PDF (decimal 10 MB, not 10 MiB).
+- Exactly one multipart file, named `file`, per request.
+- No encrypted/password-protected PDFs or documents with no extractable text.
+
+The session and Origin are checked before multipart parsing. Actual body bytes
+are bounded even without a trustworthy Content-Length. A small additional allowance
+is used for multipart framing; the file itself still has the exact 10,000,000-byte limit.
+
+PDF text is extracted page by page, whitespace-normalized, and split into up to
+800-character chunks with approximately 100 characters of overlap. Chunks never
+span pages. Blank/unextractable pages retain their original page numbering and
+are reported in visible warnings; only text-bearing pages are indexed. **OCR and
+image understanding are not implemented.**
+
+PDF validation occurs before acceptance. A successful upload returns **202**, not
+a claim that indexing has finished. A local worker embeds the chunks, validates
+the model's exact output dimensions and values, and publishes the full index in
+one transaction. Normalized little-endian float32 vectors, model identity and
+page provenance are persisted in SQLite. A failure is visible as **Failed** with
+an error; partial indexes are never searchable.
+
+### Replacement and deletion
+
+- Replacement keeps the existing Ready PDF/index available while the new version
+  processes. It uses the same document slot and works at the 10-document limit.
+- Rejected/failed replacements do not discard the old version. Successful
+  replacement atomically swaps metadata and chunks, then clears its pending state.
+- A document already processing/replacing cannot receive another replacement;
+  deletion remains available.
+- Deletion removes the record, chunks and private files. A queued/running job
+  cannot recreate it afterward. File removal is rolled back if the database
+  operation fails; storage errors are reported rather than counted as success.
+- Interrupted indexing becomes Failed on restart. An interrupted replacement
+  retains the previous Ready version and reports its failure.
+
+The default private directory is `backend\uploads` (`UPLOADS_DIR=uploads`).
+Files use random internal names; neither storage keys nor download URLs are
+returned. Original filenames are display metadata only, and duplicate names
+remain distinct documents. No private upload directory is mounted as static content.
+
+| API | Result |
+|---|---|
+| `GET /api/documents` | Authenticated tenant's document metadata, used count and limits |
+| `GET /api/documents/{id}` | Own document metadata; other/unknown IDs return 404 |
+| `POST /api/documents` | Validate one multipart PDF and return 202 with its processing state |
+| `PUT /api/documents/{id}` | Validate/queue a replacement, retaining the active version |
+| `DELETE /api/documents/{id}` | Remove the document and its private data; return 204 |
+
+Document responses include `warnings`, `chunk_count`, an explicit `error`, and a
+separate `replacement` state. The UI polls only while work is active; refresh
+errors retain any previous list as explicitly stale, never as a fabricated zero.
+
+The browser supplies `X-Organization-ID` as an expected-workspace assertion.
+It does **not** select a tenant or grant authority: the server compares it with
+the authenticated session and returns `409 workspace_changed` on mismatch.
+This prevents an old tab from uploading into a different organisation after
+another tab changes the shared login cookie. API clients may omit the assertion
+when they intentionally target whichever organisation their session represents.
+
+### Processing limits and operational scope
+
+This MVP runs as **one API process**, with one indexing worker, up to 20
+outstanding index jobs, and at most 2 concurrent upload validations. Busy requests
+return an explicit 503. Do not start multiple API workers against the same
+database: startup recovery and the in-process queue assume a single owner.
+
+The internal ready-index reader filters by tenant and Ready status, rejects
+incomplete vectors/model mismatches, and reads current data without a retrieval
+cache. Changing `EMBEDDING_MODEL` requires replacing/reindexing existing PDFs
+before querying them with the new model. P3 will add question retrieval and ranking.
+
+For production, add a durable distributed queue, isolated PDF workers with
+resource/time budgets, schema migrations and stronger transactional object storage.
+The current parser includes its own decompression safeguards, but P2 is not a
+general-purpose hostile-document sandbox. No PDF text is sent to the LLM gateway
+during ingestion.
 
 ## Stack smoke checks
 
@@ -285,12 +375,12 @@ stripping can emit an experimental warning on Node 22.
 ## Manual phase checkpoints
 
 All staging, branch selection, commits and pushes are performed **manually by the
-project owner**. P0 was committed and pushed as `c22d4df`. P1 stops for review and a
-manual commit before P2 begins.
-Suggested P1 message:
+project owner**. P0 is `c22d4df` and P1 is `5331ce6`. P2 stops for review and a
+manual commit before P3 begins.
+Suggested P2 message:
 
 ```text
-feat(auth): organisation registration, login, dashboard shell
+feat(kb): PDF upload with limits, page-aware chunking, local embeddings
 ```
 
 Do not include the local environment file, model cache, virtual environment,

@@ -9,6 +9,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from app.config import SESSION_COOKIE_NAME, Settings
+from app.kb.storage import StorageError
 
 logger = logging.getLogger(__name__)
 
@@ -85,5 +86,15 @@ def install_error_handlers(application: FastAPI, settings: Settings) -> None:
             request,
             ApiError(
                 503, "storage_unavailable", "The workspace database is unavailable. Try again."
+            ),
+        )
+
+    @application.exception_handler(StorageError)
+    async def private_storage_error(request: Request, error: StorageError) -> JSONResponse:
+        logger.error("Private-file operation failed request_id=%s", request.state.request_id)
+        return error_response(
+            request,
+            ApiError(
+                503, "storage_unavailable", "Private document storage is unavailable. Try again."
             ),
         )

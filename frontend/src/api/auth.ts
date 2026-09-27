@@ -1,5 +1,6 @@
 import {
   ApiError,
+  isIsoDateTime,
   isNonemptyString,
   isRecord,
   isUnauthenticatedError,
@@ -36,19 +37,6 @@ export interface RegisterInput extends LoginInput {
 
 export function isOrganization(value: unknown): value is Organization {
   return isRecord(value) && isNonemptyString(value.id) && isNonemptyString(value.name)
-}
-
-function isIsoDateTime(value: unknown): value is string {
-  if (
-    typeof value !== 'string' ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ||
-    !Number.isFinite(Date.parse(value))
-  ) {
-    return false
-  }
-  const calendarDate = value.slice(0, 10)
-  const midnight = new Date(`${calendarDate}T00:00:00Z`)
-  return Number.isFinite(midnight.getTime()) && midnight.toISOString().slice(0, 10) === calendarDate
 }
 
 export function isSession(value: unknown): value is Session {

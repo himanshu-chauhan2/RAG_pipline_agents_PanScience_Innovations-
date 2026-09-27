@@ -13,26 +13,15 @@ interface Feature {
 }
 
 const features = {
-  'knowledge-base': {
-    label: 'Knowledge Base',
-    title: 'A home for your organisation’s knowledge.',
-    description: 'Your account is ready. A document-backed knowledge base is the next step.',
-    phase: 'P2',
-    icon: 'documents',
-    emptyTitle: 'Document uploads are not implemented yet.',
-    emptyDescription:
-      'P1 provides accounts and a protected workspace. PDF upload, document listing and indexing arrive in the next phase; there is no document count to report yet.',
-    nextStep: 'Next: upload PDFs and build a tenant-scoped document index.',
-  },
   assistant: {
     label: 'Assistant',
     title: 'Better answers start with evidence.',
-    description: 'A place for a grounded assistant, once the knowledge and decision layers are ready.',
+    description: 'Your indexed PDFs are the foundation. Grounded answers and decision validation come next.',
     phase: 'P3–P5',
     icon: 'assistant',
     emptyTitle: 'Assistant publishing is not implemented yet.',
     emptyDescription:
-      'There is no public assistant link, embed code or chat experience in P1. Publishing will become available only after grounded answers and decision validation are implemented.',
+      'There is no public assistant link, embed code or chat experience in P2. Publishing will become available only after grounded answers and decision validation are implemented.',
     nextStep: 'Next: grounded answers, explicit decision models and a verified chat experience.',
   },
   usage: {
@@ -74,7 +63,7 @@ export default function FeaturePage({ section }: { section: FeatureSection }) {
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-muted">{feature.emptyDescription}</p>
           <span className="mt-6 inline-flex items-center gap-2 rounded-full bg-canvas px-3 py-1.5 text-xs font-medium text-muted">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-            Not available in P1
+            Not available in P2
           </span>
         </div>
         <p className="border-t border-line bg-canvas/60 px-6 py-4 text-xs leading-6 text-muted sm:px-8">
@@ -87,7 +76,7 @@ export default function FeaturePage({ section }: { section: FeatureSection }) {
         <p>
           <strong className="font-semibold">Available now:</strong>{' '}
           <span className="text-muted">
-            organisation registration, sign-in, a verified workspace and sign-out.
+            organisation accounts, private PDF uploads, replacement, deletion and local index management.
           </span>
         </p>
       </div>

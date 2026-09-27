@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 const paths = {
   external: <path d="M5 15 15 5M5 5h10v10" />,
   arrow: <path d="M4 10h12m-5-5 5 5-5 5" />,
+  upload: <path d="M10 13V3M6 7l4-4 4 4M4 12v5h12v-5" />,
   documents: (
     <>
       <path d="M7 3h6l3 3v11H7V3Zm6 0v4h3M4 6v11" />

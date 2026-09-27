@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { workspaceViewKey } from './auth/verification'
 import { Footer, Header } from './components/Chrome'
 import Icon from './components/Icon'
 import RequestError from './components/RequestError'
 import AuthPage from './pages/AuthPage'
 import DashboardLayout from './pages/DashboardLayout'
 import FeaturePage from './pages/FeaturePage'
+import KnowledgeBasePage from './pages/KnowledgeBasePage'
 
 const titles: Record<string, string> = {
   '/': 'Workspace',
@@ -24,9 +26,9 @@ function GuestRoute() {
 }
 
 function ProtectedDashboard() {
-  const { state } = useAuth()
+  const { state, workspaceRevision } = useAuth()
   return state.status === 'authenticated' ? (
-    <DashboardLayout key={`${state.session.user.id}:${state.session.organization.id}`} session={state.session} />
+    <DashboardLayout key={workspaceViewKey(state.session, workspaceRevision)} session={state.session} />
   ) : (
     <Navigate to="/login" replace />
   )
@@ -49,7 +51,7 @@ function NotFound() {
 }
 
 function Workspace() {
-  const { state, logoutState, retrySession, signOut } = useAuth()
+  const { state, logoutState, workspaceReviewRequired, acknowledgeWorkspace, retrySession, signOut } = useAuth()
   const { pathname } = useLocation()
   const previous = useRef({ pathname, status: state.status })
 
@@ -102,6 +104,20 @@ function Workspace() {
           </RequestError>
         </div>
       )}
+      {state.status === 'authenticated' && workspaceReviewRequired && (
+        <section role="alert" aria-labelledby="workspace-review-heading" className="page-width mt-6 rounded-xl border border-warning-line bg-warning-soft p-5 text-sm leading-6 text-warning">
+          <h2 id="workspace-review-heading" className="font-semibold">Review your active workspace.</h2>
+          <p className="mt-2 [overflow-wrap:anywhere]">
+            Your sign-in or expected workspace changed. You are now in{' '}
+            <strong>{state.session.organization.name}</strong> as <strong>{state.session.user.full_name}</strong>.
+            Previous file selections and delete confirmations were cleared.
+            Review this organisation before making document changes; no mutation will be replayed.
+          </p>
+          <button type="button" className="button-secondary mt-4" onClick={acknowledgeWorkspace}>
+            Use this workspace
+          </button>
+        </section>
+      )}
       <p role="status" aria-live="polite" className="sr-only">
         {isSigningOut ? 'Signing out of your current session.' : ''}
       </p>
@@ -142,7 +158,7 @@ function Workspace() {
           </Route>
           <Route path="/dashboard" element={<ProtectedDashboard />}>
             <Route index element={<Navigate to="knowledge-base" replace />} />
-            <Route path="knowledge-base" element={<FeaturePage section="knowledge-base" />} />
+            <Route path="knowledge-base" element={<KnowledgeBasePage />} />
             <Route path="assistant" element={<FeaturePage section="assistant" />} />
             <Route path="usage" element={<FeaturePage section="usage" />} />
           </Route>

@@ -1,14 +1,15 @@
-# Frontend · P1 organisation accounts
+# Frontend · P2 private PDF knowledge base
 
 An **independent PanScience hackathon submission**, not an official PanScience
-service. React, Vite, TypeScript, Tailwind and React Router provide registration,
-sign-in, a protected organisation dashboard and local health diagnostics.
+service. React, Vite, TypeScript, Tailwind and React Router provide organisation
+accounts, a private PDF knowledge base, upload/replacement/deletion controls,
+local indexing status and backend health diagnostics.
 
-PDF uploads/indexing, grounded answers, decision models, assistant publishing,
-public links, embedding and usage reporting are **not implemented in P1**.
-Dashboard navigation opens explicitly labelled future-feature pages; there are
-no fake metrics, upload controls or non-working publish links. Assistant tokens
-are not requested or displayed.
+Grounded answers, decision models, assistant publishing, public links, embedding
+and usage reporting are **not implemented in P2**. Assistant and Usage routes
+remain explicitly labelled future-feature pages. There are no fake metrics,
+percentage estimates, PDF download/open links or non-working publish links.
+Assistant tokens are not requested or displayed.
 
 ## Local development
 
@@ -21,9 +22,9 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Start the backend separately using the repository's
 instructions. Vite proxies `/api` to `http://127.0.0.1:8000`. All application
-requests are same-origin; auth requests explicitly use `credentials: "same-origin"`.
-The browser supplies the Origin header on POST requests; frontend code does not
-fabricate an Origin or Authorization header.
+requests are same-origin; the auth/document client explicitly uses
+`credentials: "same-origin"`. The browser supplies the Origin header on mutation
+requests; frontend code does not fabricate an Origin or Authorization header.
 
 Use the same hostname throughout a session: `localhost` and `127.0.0.1` have
 separate cookie stores. The backend accepts these hosts on ports 5173, 4173 and
@@ -41,7 +42,7 @@ browser storage or `VITE_*` environment variables.
 | `/login` | Email/password sign-in; authenticated visitors go to the dashboard. |
 | `/register` | Creates an organisation account and signs in automatically. |
 | `/dashboard` | Protected; redirects to Knowledge Base. |
-| `/dashboard/knowledge-base` | Real account context; PDF features explicitly planned for P2. |
+| `/dashboard/knowledge-base` | Private document list, real quota, uploads, safe replacement and confirmed deletion. |
 | `/dashboard/assistant` | Explicitly unimplemented publishing/chat state for P3–P5. |
 | `/dashboard/usage` | Explicitly unimplemented usage reporting state for P5. |
 
@@ -60,18 +61,145 @@ are not accepted, preventing open redirects.
 - A session is rechecked when its known expiry is reached and when an
   authenticated browser window regains focus. The backend remains authoritative.
   An already-expired success payload is treated as an invalid response, not
-  accepted as a usable session.
+  accepted as a usable session. **Focus always calls `/api/auth/me`, even before
+  expiry**: another tab can change the shared HttpOnly cookie. An unexpired check
+  runs quietly; a same-user/same-organisation result updates the verified session
+  without remounting the view, preserving native file-picker selections.
+  Initial and expired-session checks still block the workspace; verification
+  failures hide protected content and show Retry, and confirmed unauthenticated
+  responses clear the session.
+- Changed user/organisation identity, session clearing and explicit workspace
+  mismatch resets discard the old protected view. Its document requests,
+  mutations and polling timers are cancelled on unmount. A changed identity
+  requires explicit workspace review before document changes.
 - The dashboard loads `GET /api/organizations/{current-organization-id}`. A
   mismatched organisation response is rejected; a verified unauthenticated
   response returns the visitor to sign-in. Other failures have a separate retry.
 - `POST /api/auth/logout` accepts **204 without parsing JSON**, or an already
   unauthenticated response. Network, server and invalid-response failures remain
   visible and **do not clear the local session**; the sign-out button can retry.
-- Requests time out after eight seconds, including body reading, and are
-  cancelled when their owning view unmounts. HTTP failures preserve the backend
-  error code, field errors and request reference.
+- Reads/auth requests time out after eight seconds, including body reading.
+  PDF upload/replacement requests allow 60 seconds for transfer and validation.
+  Requests are cancelled when their owning view unmounts. HTTP failures preserve
+  the backend error code, field errors and request reference.
 
-## Form validation
+## PDF workflow
+
+The table and quota meter come from `GET /api/documents`. An initial load failure
+does not create an empty list or a zero count. If refreshing fails, the last
+successful snapshot can remain visible only with **stale list/quota** warnings;
+mutation controls stay disabled until a refresh succeeds. A previously empty
+snapshot is labelled as historical, not as the current knowledge base.
+
+- **Limits:** 10 documents, 20 pages per PDF and exactly **10,000,000 bytes**
+  per file (10 decimal MB, not 10 MiB). Processing and failed initial documents
+  occupy slots. The browser checks the selected file's size; the PDF accept
+  filter is only a picker hint. Content, filename, encryption, page count and
+  readable-text validation belong to the backend.
+- **Upload:** choose one file, then explicitly submit it. A 202 response means
+  accepted after PDF validation, not necessarily indexed. The list reports
+  Processing, Ready or Failed, actual page/byte/chunk counts, extraction warnings
+  and indexing error details.
+- **Text extraction:** a wholly unreadable/scanned PDF is rejected with 400.
+  A mixed or blank-page PDF may index its text-bearing pages with explicit
+  warnings. **OCR is not available.** The always-present `warnings: string[]`
+  field is rendered as plain text; an empty array means no reported warnings.
+- **Replace:** select Replace on a Ready or Failed document, choose a new file
+  and submit. This works at the 10-document quota because it reuses the slot.
+  A pending index/replacement blocks another replacement in the UI; the server
+  remains authoritative and can return `409 document_busy`.
+- **Keep the old index:** a Ready document remains Ready with its old name,
+  metadata, chunks and extraction warnings while its replacement processes.
+  Replacement failure is displayed separately and leaves the old index active.
+  Only a successful replacement swaps metadata/warnings and clears the
+  replacement state. Failed initial documents have no ready index to retain.
+- **Delete:** a focused, explicit confirmation precedes the DELETE request.
+  Processing and replacing documents can also be deleted. The backend prevents
+  pending work from restoring a deleted document. The client cancels an older
+  list request before a mutation and refreshes the authoritative list afterward.
+- **Failures:** field errors, quota/busy conflicts, unavailable storage,
+  authentication failures and malformed responses are not silently ignored.
+  The UI reconciles the document list after every mutation error when the view
+  and session remain active, including validation errors. A workspace mismatch
+  takes the forced session-revalidation path below instead of retrying the old
+  document context. Network/timeout or
+  invalid-response failures may leave an uncertain result: the selected file or
+  delete confirmation is cleared after reconciliation, and the user is warned
+  to review the list before submitting again. A failed reconciliation leaves a
+  visibly stale snapshot with changes disabled. Mutations are never retried
+  automatically.
+- **Private files:** the frontend does not create object URLs or expose download,
+  open-PDF or storage-path links. Processing uses local backend models; there
+  are no frontend model or gateway calls.
+
+### Bounded status polling
+
+Only initial Processing documents or a Processing replacement trigger automatic
+list checks. Checks do not overlap, run at three-second intervals, and stop at
+40 checks or a two-minute monotonic-clock window per round (an in-flight request
+also has its own timeout). Ready/Failed-only lists do not poll.
+
+Polling stops on a list error and exposes Retry instead of retrying indefinitely.
+Reaching the budget displays **Automatic status checks are paused** without
+claiming that backend processing failed. Refresh status starts a new bounded
+round; mutation reconciliation does the same when pending work remains. Leaving
+the page, resetting the workspace identity or clearing/expiring the session
+cancels timers and requests, not already accepted backend indexing work.
+No percentage progress is invented.
+
+### Cross-tab workspace safety
+
+Every document helper requires `{organizationId, signal}`. List, get, upload,
+replace and delete send **`X-Organization-ID` with the displayed, verified
+organisation ID**, including automatic list checks and reconciliation reads.
+An empty expected ID is rejected before fetching. The header is an expected-
+context assertion, **never a tenant selector**: the backend selects and authorizes
+the organisation from the verified cookie, then rejects a mismatched expectation
+with `409 workspace_changed` before reading or changing documents.
+
+This closes the race where another tab switches the shared cookie between a
+focus check and a document request. Auth verification itself does not send this
+header: `/api/auth/me` must report the cookie's actual current identity.
+
+On `workspace_changed`, the frontend stops using the old document context,
+blocks the view and rechecks `/api/auth/me`. It forces a fresh workspace view
+even if verification returns the same identity, clearing file selections and
+delete confirmations. The verified organisation is shown in a review notice.
+Document mutation controls remain disabled until the user chooses **Use this
+workspace**; no failed mutation is automatically replayed under the new cookie.
+Regular `document_busy` and quota conflicts do not trigger an identity switch.
+
+For browser integration checks, select a file and refocus the same identity
+(selection should remain), then sign into another organisation in a second tab.
+The first tab must either detect the new identity on focus or receive
+`workspace_changed` for its old expected context, clear its selections, and
+require workspace review before another submission.
+
+### Document API contracts
+
+| Request | Result |
+| --- | --- |
+| `GET /api/documents` | `{documents, used, max_documents: 10, max_pages: 20, max_size_bytes: 10000000}` |
+| `GET /api/documents/{id}` | One validated document; a mismatched ID is rejected. |
+| `POST /api/documents` | Multipart field `file`; requires 202 and a document response. |
+| `PUT /api/documents/{id}` | Multipart field `file`; requires 202 with the same document ID. |
+| `DELETE /api/documents/{id}` | Requires 204; no JSON parsing. |
+
+Multipart bodies contain only `file`; expected organisation context is a header,
+not another form field. **Do not manually set Content-Type or Origin**: fetch
+generates the multipart boundary and the browser supplies Origin.
+The JSON auth client continues to
+send its JSON content type. Document errors use the same structured error
+contract as auth, including request references and optional field messages.
+
+A document has `id`, `name`, `pages`, `size_bytes`, `status`, nullable
+`error: {code, message}`, always-present `warnings: string[]`, `chunk_count`,
+`created_at`, `updated_at`, and nullable
+`replacement: {name, status: "processing" | "failed", error}`. The runtime guards
+validate status values, integer counts, timestamps, published limits, unique
+IDs and list/quota consistency. Only documented metadata is retained.
+
+## Account form validation
 
 The server is authoritative; client checks provide immediate field feedback:
 
@@ -87,7 +215,7 @@ field in API requests. Labels, autocomplete hints, inline errors, a focused
 error summary, pending states and a show/hide password control support keyboard
 and assistive-technology use.
 
-## API contracts
+## Account API contracts
 
 `POST /api/auth/register` accepts
 `{organization_name, full_name, email, password}` and requires status **201**.
@@ -137,7 +265,7 @@ updated for the current backend phase:
   "status": "ok",
   "service": "knowledge-decision-assistant",
   "version": "0.1.0",
-  "phase": "P1",
+  "phase": "P2",
   "gateway_configured": false
 }
 ```
@@ -159,7 +287,11 @@ npm run preview
 - `typecheck` checks application code, Vite configuration and tests.
 - `test` uses Node's built-in test runner and TypeScript stripping. Node 22.14
   may emit an experimental warning. HTTP responses are mocked; no backend,
-  gateway, credentials or extra test framework is needed.
+  gateway, credentials or extra test framework is needed. Coverage includes
+  multipart boundary generation, byte limits, active-warning replacement
+  retention, the 60-second validation timeout, quota rules, failure contracts,
+  cancellation, expected-organisation headers, quiet focus verification,
+  workspace identity resets and the bounded polling policy.
 - `build` runs TypeScript checking before producing `dist`.
 - `preview` serves the production build at `http://127.0.0.1:4173` with the same
   local API proxy. It is a local preview, not a production deployment server.

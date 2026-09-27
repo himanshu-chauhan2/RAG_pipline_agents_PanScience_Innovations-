@@ -42,6 +42,19 @@ export function isNonemptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 
+export function isIsoDateTime(value: unknown): value is string {
+  if (
+    typeof value !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ||
+    !Number.isFinite(Date.parse(value))
+  ) {
+    return false
+  }
+  const calendarDate = value.slice(0, 10)
+  const midnight = new Date(`${calendarDate}T00:00:00Z`)
+  return Number.isFinite(midnight.getTime()) && midnight.toISOString().slice(0, 10) === calendarDate
+}
+
 export function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
   if (!isRecord(value) || !isRecord(value.error)) {
     return false
@@ -66,6 +79,15 @@ export function isUnauthenticatedError(error: unknown): error is ApiError {
   )
 }
 
+export function isWorkspaceChangedError(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    error.kind === 'http' &&
+    error.status === 409 &&
+    error.code === 'workspace_changed'
+  )
+}
+
 export function toApiError(error: unknown): ApiError {
   return error instanceof ApiError
     ? error
@@ -74,10 +96,11 @@ export function toApiError(error: unknown): ApiError {
 
 interface RequestOptions {
   signal: AbortSignal
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   successStatus?: number
   timeoutMs?: number
+  expectedOrganizationId?: string
 }
 
 async function request<T>(
@@ -100,8 +123,15 @@ async function request<T>(
 
   try {
     const headers: Record<string, string> = { Accept: 'application/json' }
-    if (options.body !== undefined) {
+    if (options.expectedOrganizationId !== undefined) {
+      headers['X-Organization-ID'] = options.expectedOrganizationId
+    }
+    let body: BodyInit | undefined
+    if (options.body instanceof FormData) {
+      body = options.body
+    } else if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json'
+      body = JSON.stringify(options.body)
     }
 
     const response = await fetch(path, {
@@ -110,7 +140,7 @@ async function request<T>(
       cache: 'no-store',
       redirect: 'error',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body,
       signal: controller.signal,
     })
     controller.signal.throwIfAborted()

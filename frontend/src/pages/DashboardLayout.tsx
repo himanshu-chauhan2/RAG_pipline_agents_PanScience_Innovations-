@@ -108,8 +108,8 @@ export default function DashboardLayout({ session }: { session: Session }) {
         </details>
 
         <div className="mt-6 hidden border-l-2 border-accent/25 pl-4 text-xs leading-5 text-muted lg:block">
-          <p className="mb-1 font-semibold text-ink">P1 · Organisation accounts</p>
-          Documents, assistant publishing and usage reporting follow in later phases.
+          <p className="mb-1 font-semibold text-ink">P2 · Private knowledge base</p>
+          PDF management and local indexing are available. Assistant publishing and usage reporting follow later.
         </div>
       </aside>
 

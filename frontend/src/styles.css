@@ -121,6 +121,27 @@
     background: var(--color-sage);
   }
 
+  .button-danger,
+  .button-danger:hover:not(:disabled) {
+    background: var(--color-warning);
+  }
+
+  .quota-meter::-webkit-meter-bar {
+    border: 0;
+    border-radius: 999px;
+    background: var(--color-canvas);
+  }
+
+  .quota-meter::-webkit-meter-optimum-value {
+    border-radius: 999px;
+    background: var(--color-accent);
+  }
+
+  .quota-meter::-moz-meter-bar {
+    border-radius: 999px;
+    background: var(--color-accent);
+  }
+
   .button-primary:disabled,
   .button-secondary:disabled {
     cursor: wait;

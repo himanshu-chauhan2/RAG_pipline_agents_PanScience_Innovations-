@@ -15,7 +15,7 @@ The part that carries 55% of the grade: the **LLM must work with separate "Syste
 
 **Goal:** ship in 2–3 days as a working GitHub repo with `.env.example`, sample data for 2 orgs, a README and a demo video. Work on **one phase at a time**: implement, verify, then hand over for your review and **manual commit**. Do not start the next phase until you approve proceeding.
 
-**Current checkpoint:** you committed and pushed P0 (`c22d4df`). P1 is implemented and verified, ready for your review and manual commit. P2 has not started. The estimates below total roughly 27 hours and are targets, not a reason to skip validation.
+**Current checkpoint:** P1 is committed as `5331ce6`; P2 implementation and verification are in progress. All staging, commits and pushes remain under your control. The estimates below total roughly 27 hours and are targets, not a reason to skip validation.
 
 **Your decisions so far:**
 - **LLM:** OpenAI models via your gateway (URL + key in `.env`).
@@ -24,6 +24,7 @@ The part that carries 55% of the grade: the **LLM must work with separate "Syste
 - **Orchestration:** plain async Python.
 - **Clarification context:** bounded chat history kept in browser memory and resent with the question; no conversation database table.
 - **Dashboard authentication:** HttpOnly-cookie JWTs backed by revocable server sessions, as selected for P1. Logout revokes only the current session; other devices remain signed in.
+- **PDF replacement:** keep the existing indexed version available until the replacement is fully validated and indexed, as selected for P2.
 - **Submission context:** built for the PanScience Innovations hackathon. The assignment remains the requirements checklist; the company website informs product positioning, not invented internal policies or official affiliation.
 
 **Environment:**
@@ -151,7 +152,7 @@ sample_data/                     policy texts → PDFs for 2 orgs · classifier_
 scripts/                         smoke_test.py · make_sample_pdfs.py · seed_demo.py · run_eval.py
 ```
 
-**Database tables (7; 4 introduced in P1):**
+**Database tables (7 planned; 4 introduced in P1 and 2 in P2):**
 - `organizations`, `users`, `assistants` (org_id, token).
 - `auth_sessions` (user_id, expiry, revoked_at); the user relation resolves the organisation. This table is the intentional addition for reliable per-session logout.
 - `documents` (org_id, name, pages, size, status, error), `chunks` (org_id, document_id, page, text, embedding).
@@ -214,7 +215,7 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `chore: project setup, sample policies, smoke test`
 
 ### P1 — Organisation accounts · ~3 h
-- **Status:** implemented and verified on 27 September 2026; awaiting your manual commit and go-ahead for P2.
+- **Status:** implemented, verified, and committed as `5331ce6`.
 - Register (creates the org, the admin user and the assistant token), login, logout.
 - SQLite persists organisations, users, assistant tokens and revocable admin sessions. Registration is atomic; the database enforces one account per canonical email.
 - Passwords use bcrypt with an 8-character minimum and a 72-UTF-8-byte maximum. Password whitespace is preserved; blank passwords are rejected.
@@ -230,6 +231,7 @@ Chat history stays in browser memory; no conversation table is needed for this M
 - *Commit:* `feat(auth): organisation registration, login, dashboard shell`
 
 ### P2 — Knowledge base · ~4 h
+- **Status:** implementation complete; validating the live local-model and browser flows.
 - **Upload checks, each with a clear message:**
   - is it a real PDF
   - ≤ 10 MB, defined as 10,000,000 bytes
@@ -238,9 +240,19 @@ Chat history stays in browser memory; no conversation table is needed for this M
   - fewer than 10 docs already
   - has readable text (scanned image PDFs get an error)
 - **Processing:** split each page into ~800-character chunks (a chunk never spans two pages) → embed locally → status *Processing → Ready / Failed*.
+- Chunks overlap by about 100 characters and retain the original physical page number. Blank/unextractable pages produce visible warnings; a wholly unreadable PDF is rejected. OCR is not implemented.
+- Validate the session and Origin before reading multipart data. Bound the actual request bytes (including when Content-Length is absent), validate one file, and run PDF extraction off the event loop.
+- SQLite write transactions enforce the 10-document limit under concurrent uploads. Processing and Failed records count; replacement does not consume another slot.
+- A single local indexing worker, with a maximum of 20 outstanding jobs, keeps model inference off the API event loop. At most 2 uploads are validated simultaneously. Busy requests fail explicitly instead of building an unbounded queue.
+- Validate exact embedding row count/dimensions, finite values and nonzero vectors; persist normalized float32 vectors and model identity. Only complete Ready indexes are eligible for retrieval.
 - Dashboard: document table, a "7 / 10 documents used" meter, and delete / replace.
 - Files are stored under random names in a private folder, with no public download.
-- Processing/embedding failures leave an explicit Failed state and a useful message, not a partially searchable document. Deletion/replacement invalidates the old chunks and any retrieval cache.
+- Replacement has a separate pending/failure state. The old Ready metadata, file and chunks remain active until an atomic swap succeeds; rejected or failed replacements retain the old version.
+- Deletion removes the private files and cascades chunk deletion. An in-flight or queued index job cannot resurrect a deleted record. Files are restored if the database deletion/swap rolls back.
+- Interrupted jobs become explicit failures on restart; an interrupted replacement preserves the previous Ready index. Index-state write failures are surfaced and retried on subsequent metadata reads, not left silently Processing.
+- The frontend sends an expected `X-Organization-ID` for document requests. The server compares it with the verified session; a mismatch returns `409 workspace_changed` without selecting or exposing another tenant. This protects file actions when another tab changes the shared login cookie.
+- Poll only during active processing, abort stale requests, reconcile uncertain mutations, and never present a failed refresh as an empty knowledge base. Same-identity focus checks preserve selected files.
+- Operate as one API process for this MVP; use a durable worker queue and stronger storage transaction infrastructure before multi-worker production deployment.
 - **Acceptance:** exact 10-document / 20-page / 10-MB boundaries pass and values above them fail; invalid/encrypted/scanned PDFs have clear errors; only Ready documents are searchable; delete and re-upload work at the document limit.
 - *Commit:* `feat(kb): PDF upload with limits, page-aware chunking, local embeddings`
 

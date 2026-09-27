@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { getCurrentSession, logout } from '../api/auth'
+import { logout } from '../api/auth'
 import type { Session } from '../api/auth'
-import { isUnauthenticatedError, toApiError } from '../api/client'
+import { isUnauthenticatedError, isWorkspaceChangedError, toApiError } from '../api/client'
 import type { ApiError } from '../api/client'
+import { verifySession } from './verification'
 
 type SessionState =
   | { status: 'loading' }
@@ -19,9 +20,13 @@ type LogoutState =
 interface AuthContextValue {
   state: SessionState
   logoutState: LogoutState
+  workspaceReviewRequired: boolean
+  workspaceRevision: number
   retrySession: () => void
   completeAuthentication: (session: Session) => void
   handleUnauthenticated: (error: unknown) => boolean
+  handleWorkspaceChanged: (error: unknown) => boolean
+  acknowledgeWorkspace: () => void
   signOut: () => Promise<void>
 }
 
@@ -30,6 +35,10 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SessionState>({ status: 'loading' })
   const [logoutState, setLogoutState] = useState<LogoutState>({ status: 'idle' })
+  const [workspaceReviewRequired, setWorkspaceReviewRequired] = useState(false)
+  const [workspaceRevision, setWorkspaceRevision] = useState(0)
+  const verifiedSession = useRef<Session | null>(null)
+  const recheckAfterLogout = useRef(false)
   const checkController = useRef<AbortController | null>(null)
   const logoutController = useRef<AbortController | null>(null)
 
@@ -38,6 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logoutController.current?.abort()
     checkController.current = null
     logoutController.current = null
+    verifiedSession.current = null
+    recheckAfterLogout.current = false
+    setWorkspaceReviewRequired(false)
     setLogoutState({ status: 'idle' })
     setState({ status: 'anonymous' })
   }, [])
@@ -51,41 +63,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [clearConfirmedSession],
   )
 
-  const retrySession = useCallback(() => {
+  const checkSession = useCallback((background = false) => {
     if (logoutController.current) return
     checkController.current?.abort()
     const controller = new AbortController()
     checkController.current = controller
-    setState({ status: 'loading' })
-    setLogoutState({ status: 'idle' })
-
-    void getCurrentSession(controller.signal)
-      .then(
-        (session) => {
-          if (!controller.signal.aborted) {
-            setState({ status: 'authenticated', session })
-          }
-        },
-        (error: unknown) => {
-          if (!controller.signal.aborted && !handleUnauthenticated(error)) {
-            setState({ status: 'error', error: toApiError(error) })
-          }
-        },
-      )
+    void verifySession({
+      current: verifiedSession.current,
+      signal: controller.signal,
+      background,
+      onBlocking: () => setState({ status: 'loading' }),
+    })
+      .then((result) => {
+        if (controller.signal.aborted || result.status === 'cancelled') return
+        if (result.status === 'anonymous') {
+          clearConfirmedSession()
+        } else if (result.status === 'error') {
+          setState({ status: 'error', error: result.error })
+        } else {
+          if (result.identityChanged) setWorkspaceReviewRequired(true)
+          verifiedSession.current = result.session
+          setState({ status: 'authenticated', session: result.session })
+        }
+      })
       .finally(() => {
         if (checkController.current === controller) checkController.current = null
       })
-  }, [handleUnauthenticated])
+  }, [clearConfirmedSession])
+
+  const retrySession = useCallback(() => checkSession(), [checkSession])
+
+  const handleWorkspaceChanged = useCallback((error: unknown) => {
+    if (!isWorkspaceChangedError(error)) return false
+    checkController.current?.abort()
+    setWorkspaceReviewRequired(true)
+    // Reset selections even if loading and a same-identity result are batched into one render.
+    setWorkspaceRevision((revision) => revision + 1)
+    setState({ status: 'loading' })
+    if (logoutController.current) recheckAfterLogout.current = true
+    else checkSession()
+    return true
+  }, [checkSession])
+
+  const acknowledgeWorkspace = useCallback(() => setWorkspaceReviewRequired(false), [])
 
   const completeAuthentication = useCallback((session: Session) => {
     checkController.current?.abort()
     checkController.current = null
+    verifiedSession.current = session
+    setWorkspaceReviewRequired(false)
     setLogoutState({ status: 'idle' })
     setState({ status: 'authenticated', session })
   }, [])
 
   const signOut = useCallback(async () => {
     if (state.status !== 'authenticated' || logoutController.current) return
+    checkController.current?.abort()
+    checkController.current = null
     const controller = new AbortController()
     logoutController.current = controller
     setLogoutState({ status: 'pending' })
@@ -98,9 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLogoutState({ status: 'error', error: toApiError(error) })
       }
     } finally {
-      if (logoutController.current === controller) logoutController.current = null
+      if (logoutController.current === controller) {
+        logoutController.current = null
+        if (recheckAfterLogout.current) {
+          recheckAfterLogout.current = false
+          checkSession()
+        }
+      }
     }
-  }, [state, clearConfirmedSession])
+  }, [state, clearConfirmedSession, checkSession])
 
   useEffect(() => {
     retrySession()
@@ -118,23 +158,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const remaining = Date.parse(state.session.expires_at) - Date.now()
     const timeout = window.setTimeout(retrySession, Math.min(Math.max(remaining, 0), 2_147_483_647))
     const recheckOnFocus = () => {
-      if (document.visibilityState === 'visible') retrySession()
+      if (document.visibilityState === 'visible') {
+        // Closing a native file picker must not discard an unexpired workspace.
+        checkSession(true)
+      }
     }
     window.addEventListener('focus', recheckOnFocus)
     return () => {
       clearTimeout(timeout)
       window.removeEventListener('focus', recheckOnFocus)
     }
-  }, [state, logoutState.status, retrySession])
+  }, [state, logoutState.status, retrySession, checkSession])
 
   return (
     <AuthContext.Provider
       value={{
         state,
         logoutState,
+        workspaceReviewRequired,
+        workspaceRevision,
         retrySession,
         completeAuthentication,
         handleUnauthenticated,
+        handleWorkspaceChanged,
+        acknowledgeWorkspace,
         signOut,
       }}
     >

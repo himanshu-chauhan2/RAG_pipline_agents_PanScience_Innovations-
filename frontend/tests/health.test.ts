@@ -7,7 +7,7 @@ const validHealth: HealthResponse = {
   status: 'ok',
   service: 'knowledge-decision-assistant',
   version: '0.1.0',
-  phase: 'P1',
+  phase: 'P2',
   gateway_configured: false,
 }
 
@@ -40,7 +40,8 @@ test('rejects malformed payloads and incorrect contract fields', () => {
     { ...validHealth, service: 'another-service' },
     { ...validHealth, version: '0.2.0' },
     { ...validHealth, phase: 'P0' },
-    { ...validHealth, phase: 'P2' },
+    { ...validHealth, phase: 'P1' },
+    { ...validHealth, phase: 'P3' },
     { ...validHealth, gateway_configured: 'false' },
     { ...validHealth, gateway_configured: 0 },
     { ...validHealth, gateway_configured: null },
